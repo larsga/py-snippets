@@ -3,8 +3,8 @@ import sys, glob, operator
 from email.parser import Parser
 from email.header import decode_header
 
-SAMPLES = 1000
-PATTERN = '*.emlx'
+SAMPLES = 500
+PATTERN = '*.*'
 PADDING = 5
 
 class Corpus:
@@ -56,19 +56,21 @@ def compute_bayes(probs):
         return product / (product + lastpart)
     
 def featurize(email):
+    #print email
     fp = open(email)
     fp.readline() # discard first garbage line
     msg = Parser().parse(fp)
 
     features = []
-    for header in msg.keys():
-        for (v, cs) in decode_header(msg[header]):
-            try:
-                v = v.decode(cs or 'utf-8')
-            except UnicodeDecodeError:
-                v = v.decode('iso-8859-1')
-            for vp in v.split():
-                features.append(header + ':' + vp)
+    # Results are better if we *don't* use the headers
+    # for header in msg.keys():
+    #     for (v, cs) in decode_header(msg[header]):
+    #         try:
+    #             v = v.decode(cs or 'utf-8')
+    #         except UnicodeDecodeError:
+    #             v = v.decode('iso-8859-1')
+    #         for vp in v.split():
+    #             features.append(header + ':' + vp)
 
     for part in msg.walk():
         if part.is_multipart():
@@ -109,9 +111,10 @@ for ham in glob.glob(hamdir + '/' + PATTERN)[ : SAMPLES]:
 
 # compute probability
 for email in sys.argv[3 : ]:
+    print '=' * 75
     print email
     p = classify(email)
-    if p < 0.2:
+    if p > 0.8:
         print '  Spam', p
     else:
         print '  Ham', p
@@ -128,4 +131,31 @@ for email in sys.argv[3 : ]:
     for (f, p) in fs[ : 10]:
         print f, p
 
-    
+# THRESHOLD = 0.99
+        
+# print "Testing the spam_2 directory"
+# ham = 0
+# spam = 0
+# for email in glob.glob('spam_2/*.*'):
+#     p = classify(email)
+#     if p < THRESHOLD:
+#         ham += 1
+#     else:
+#         spam += 1
+
+# print '  Ham:', ham
+# print '  Spam:', spam
+
+# print "Testing the easy_ham directory"
+# ham = 0
+# spam = 0
+# for email in glob.glob('easy_ham/*.*'):
+#     p = classify(email)
+#     if p < THRESHOLD:
+#         ham += 1
+#     else:
+#         spam += 1
+
+# print '  Ham:', ham
+# print '  Spam:', spam
+
