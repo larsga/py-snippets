@@ -7,3 +7,5 @@ algorithms as follows:
  * **movielens**: k-nearest neighbours recommendations.
 
  * **spam**: spam filtering with naïve Bayes.
+
+ * **ratebeer**: linear regression and PCA.
