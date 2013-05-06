@@ -1,10 +1,11 @@
 
 To try this out you first need [the MovieLens example
-data](http://www.grouplens.org/node/73).
+data](http://www.grouplens.org/node/73).  Specifically, you need the
+1M data set.
 
 Once you have done that, either edit ratings.dat to add your own
-ratings, or the following example data to the bottom of it. Note that
-the script expects your user ID to be 6041.
+ratings, or add the following example data to the bottom of it. Note
+that the script expects your user ID to be 6041.
 
     6041::347::4::Bitter Moon
     6041::1680::3::Sliding Doors
