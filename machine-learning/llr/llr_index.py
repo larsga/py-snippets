@@ -1,6 +1,7 @@
 '''
 This script reads the output of llr.py and uses it to index up the
 movie data in Lucene so that we can use Lucene to make recommendations.
+Must be run with Jython.
 '''
 
 import movielib

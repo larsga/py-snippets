@@ -1,9 +1,8 @@
 '''
-Implementation of Ted Dunning's use of a co-occurrence matrix together with
-the log likelihood ratio test to check the significance of co-occurrence.
-Will produce a set of indicator movies for each movie.
-
-At the moment this is a work in progress.
+Proof of concept implementation of Ted Dunning's use of a
+co-occurrence matrix together with the log likelihood ratio test to
+check the significance of co-occurrence.  Will produce a set of
+indicator movies for each movie.
 
 http://tdunning.blogspot.no/2008/03/surprise-and-coincidence.html
 '''
@@ -79,6 +78,8 @@ def llr(k):
 # k[1][0]: B appears, but not A
 # k[1][1]: neither appears
 
+# --- Loading the metadata
+
 movies = {}
 for (movieid, title, cats) in movielib.get_movies():
     movies[int(movieid)] = title
@@ -97,6 +98,9 @@ LIMIT = 40.0
 total = sum(co_occurrences.values())
 count = 0
 
+# this part is not in Dunning's work, but when showing 'people who liked
+# this movie also liked ...' it makes more sense to show the strongest
+# indicators. the recommendations look strange otherwise.
 def add_to_top_ten(m1, m2, strength):
     list = top_ten_for.get(m1, [])
     list.append((strength, m2))

@@ -47,8 +47,9 @@ class Like:
     def POST(self):
         nocache()
         movieid = web.input().get('movie')
-        # FIXME: avoid duplicates here
-        session.liked = movieid + ' ' + getattr(session, 'liked', '')
+        # using a set to avoid duplicates
+        unique = set([movieid] + getattr(session, 'liked', '').split())
+        session.liked = ' '.join(unique)
         web.seeother(web.ctx.homedomain + "/movie/" + movieid)
 
 class ShowLikes:

@@ -13,3 +13,7 @@ algorithms as follows:
 These samples are part of [a machine learning
 course](http://www.slideshare.net/larsga/introduction-to-big-datamachine-learning)
 on Slideshare.
+
+Later extended with the following:
+
+ * **llr**: recommendations using log likelihood ratio and Lucene.
