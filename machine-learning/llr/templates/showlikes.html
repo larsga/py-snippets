@@ -1,0 +1,16 @@
+$def with (docs)
+
+<h1>Your likes</h1>
+
+<form action='/removelike' method=post>
+
+<p><input type=submit name=clear value='Clear all'></p>
+  
+<table>
+$for doc in docs:
+    <tr>
+    <td><input type=submit name=movie_$doc.id value='Remove'>
+    <td><a href='movie/$doc.id'>$doc.title</a>
+    <td>&nbsp;$', '.join(doc.cats)
+</table>
+</form>

@@ -1,0 +1,33 @@
+$def with (movie, recoms, youlike)
+
+<h1>$movie.title</h1>
+
+<p>$', '.join(movie.cats)
+
+<p><form action='/like' method=post>
+<input type=hidden name=movie value=$movie.id>
+<input type=submit value="Like!">
+</form>
+
+<form action='/search' method=get>
+  <input type=text name=query>
+  <input type=submit value="Search">
+</form>
+  
+$if recoms:
+    <p>People who liked this movie also liked:
+    
+    <table>
+    $for recom in recoms:
+        <td><a href='/movie/$recom.id'>$recom.title</a>
+    </table>
+
+$if youlike:
+    <p>Recommendations for you:
+    
+    <table>
+    $for recom in youlike:
+        <td><a href='/movie/$recom.id'>$recom.title</a>
+    </table>
+
+    <p>Recommendations based on <a href='/likes'>your likes</a>.

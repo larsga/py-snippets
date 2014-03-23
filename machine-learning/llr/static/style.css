@@ -1,0 +1,17 @@
+body {
+    font-family: Arial;
+    font-size: 14pt
+}
+td, th {
+    padding-top: 0.6em
+}
+td {
+    vertical-align: top;
+    padding-right: 0.6em
+}
+th {
+    text-align: left;
+}
+form, input {
+    font-size: 14pt
+}

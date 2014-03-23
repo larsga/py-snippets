@@ -78,40 +78,34 @@ def llr(k):
 # k[0][1]: A appears, but not B
 # k[1][0]: B appears, but not A
 # k[1][1]: neither appears
-# k = [(13.0, 1000.0),
-#      (1000.0, 100000.0)]
-
-# print llr(k)
-
-# k = [(1.0, 0.0),
-#      (0.0, 10000.0)]
-
-# print llr(k)
-
-# k = [(1.0, 0.0),
-#      (0.0, 2.0)]
-
-# print llr(k)
-
-# k = [(10.0, 0.0),
-#      (0.0, 100000.0)]
-
-# print llr(k)
 
 movies = {}
 for (movieid, title, cats) in movielib.get_movies():
     movies[int(movieid)] = title
 
-# 40 gives 411167 significant pairs, 2117 movies with no indicators
-# 75 gives  51129 significant pairs
-# 100 gives 11147 significant pairs, 3485 movies with no indicators
+# --- 1M
+# 40 gives 411,167 significant pairs, 2117 movies with no indicators
+# 75 gives  51,129 significant pairs
+# 100 gives 11,147 significant pairs, 3485 movies with no indicators
 # 150 gives 457 significant pairs, 3820 movies with no indicators
-LIMIT = 150.0
+
+# --- 10M
+# 40 gives 3,412,561 significant pairs, 5188 movies with no indicators
+# 150 gives 164,418 significant pairs, 9243 movies with no indicators
+
+LIMIT = 40.0
 total = sum(co_occurrences.values())
 count = 0
 
-movie_indicators = {}
+def add_to_top_ten(m1, m2, strength):
+    list = top_ten_for.get(m1, [])
+    list.append((strength, m2))
+    list.sort()
+    list.reverse()
+    top_ten_for[m1] = list[ : 10]
 
+top_ten_for = {}
+movie_indicators = {}
 for ((m1, m2), coocc) in co_occurrences.items():
     rest = total - (coocc - occurrences[m2] - occurrences[m1])
                     
@@ -119,26 +113,42 @@ for ((m1, m2), coocc) in co_occurrences.items():
          [occurrences[m2] - coocc, rest]]
     test = llr(k)
     if test > LIMIT:
-        print m1, m2, k, test
-        print '  ', movies[m1], ' <*> ', movies[m2]
+        #print m1, m2, k, test
+        #print '  ', movies[m1], ' <*> ', movies[m2]
         count += 1
         movie_indicators[m1] = movie_indicators.get(m1, []) + [m2]
         movie_indicators[m2] = movie_indicators.get(m2, []) + [m1]
 
+        add_to_top_ten(m1, m2, test)
+        add_to_top_ten(m2, m1, test)
+
 print 'Above threshold:', count
 print 'Total:', len(co_occurrences)
 
-co_occurrences = None # free up some memory
+# co_occurrences = None # free up some memory
 
-counts = {}
+# counts = {}
+# for (movie_id, indicators) in movie_indicators.items():
+#     c = len(indicators)
+#     counts[c] = counts.get(c, 0) + 1
+# keys = counts.keys()
+# keys.sort()
 
-for (movie_id, indicators) in movie_indicators.items():
-    c = len(indicators)
-    counts[c] = counts.get(c, 0) + 1
-
-keys = counts.keys()
-keys.sort()
-
-print '0 -> %s' % (len(movies) - len(movie_indicators))
+# print '0 -> %s' % (len(movies) - len(movie_indicators))
 # for pair in counts.items():
 #     print '%s -> %s' % pair
+
+# --- OUTPUT
+# finally, we write the indicators to a text file for indexing with a
+# search engine
+outf = open('indicators.txt', 'w')
+for (movieid, indicators) in movie_indicators.items():
+    outf.write(str(movieid) + ' ' + (' '.join(map(str, indicators))) + '\n')
+outf.close()
+
+# then write best-bets
+outf = open('best-bets.txt', 'w')
+for (movieid, topten) in top_ten_for.items():
+    topten = [movieid for (strength, movieid) in topten]
+    outf.write(str(movieid) + ' ' + (' '.join(map(str, topten))) + '\n')
+outf.close()

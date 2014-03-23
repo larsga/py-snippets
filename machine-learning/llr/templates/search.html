@@ -1,0 +1,17 @@
+$def with (docs)
+
+<h1>Search results</h1>
+
+<form action=search method=get>
+<input type=text name=query>
+<input type=submit value=Search>
+</form>
+
+<table>
+$for doc in docs:
+    <tr><td><a href='movie/$doc.id'>$doc.title</a>
+    <td>&nbsp;$', '.join(doc.cats)
+</table>
+
+$if not docs:
+    <p>No results.
