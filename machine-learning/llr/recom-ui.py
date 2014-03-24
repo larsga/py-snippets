@@ -31,7 +31,6 @@ class Search:
 class Movie:
     def GET(self, movieid):
         nocache()
-        print 'LIKED', getattr(session, 'liked', '')
         doc = search.do_query('id', movieid)[0]
 
         #recoms = search.do_query('indicators', movieid)
@@ -76,7 +75,6 @@ class RemoveLikes:
                     session.liked = ' '.join(liked)
 
         web.seeother(web.ctx.homedomain + '/likes')
-        
         
 render = web.template.render(os.path.join('.', 'templates/'),
                              base = "base")

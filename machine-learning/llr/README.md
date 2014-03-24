@@ -8,7 +8,7 @@ A recommendation engine in two steps:
   2. a web application demonstrating recommendations by doing Lucene
   searches on the indicators produced in the previous step.
 
-The details of how it works is explained in the slides.
+The details of how it works is explained in [the slides](http://www.slideshare.net/larsga/using-the-search-engine-as-recommendation-engine).
 
 To use it, download the data as for the `movielens` example, and copy
 `movielib.py` into this folder.
