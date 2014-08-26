@@ -115,15 +115,19 @@ lastq = full_dataset[-1][0]
 if cacheend < lastq:
     sys.exit(0) # no worries
 
+# if we count the last earthquake only in that many seconds, what hourly
+# rate does that translate to?
 secs = (cacheend - lastq).total_seconds()
 perhour = 3600 / float(secs)
 
+# if the hourly rate is still above the mean, then no reason to worry
 if perhour > mean:
-    # no reason to think we've stopped yet
     sys.exit(0)
 
-prob = p.pmf(int(perhour))
-
+# compute the likelihood of this rate. we use cumulative density function,
+# as that gives the odds of this rate or a lower rate, which is really
+# the likelihood that we'd see an interval this long of no quakes
+prob = p.cdf(int(perhour))
 if prob < 10 ** -10:
     print '%s per hour, mean: %s' % (perhour, mean)
     print '%s secs with no events' % secs
