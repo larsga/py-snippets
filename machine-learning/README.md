@@ -17,3 +17,4 @@ on Slideshare.
 Later extended with the following:
 
  * **llr**: recommendations using log likelihood ratio and Lucene.
+ * **earthquakes**: anomaly detection using normal and Poisson distributions.
