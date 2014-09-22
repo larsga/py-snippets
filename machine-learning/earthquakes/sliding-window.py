@@ -63,8 +63,12 @@ for row in dataset:
     else:
         counts.append(len(sizes))
         hours.append(current)
-        avgs.append(sum(sizes) / len(sizes))
-        avgd.append(sum(depths) / len(depths))
+        if sizes:
+            avgs.append(sum(sizes) / len(sizes))
+            avgd.append(sum(depths) / len(depths))
+        else:
+            avgs.append(0)
+            avgd.append(0)
         current = hour(row[0])
 
         count = 0

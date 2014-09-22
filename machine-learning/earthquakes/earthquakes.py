@@ -103,4 +103,5 @@ def merge_new_and_old(records):
 
 if __name__ == '__main__':
     records = load_vedur_page()
+    assert records
     merge_new_and_old(records)
