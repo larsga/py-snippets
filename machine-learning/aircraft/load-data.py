@@ -26,11 +26,11 @@ def clean_int(v):
     if v.startswith('one'):
         return 1
     if v.startswith('two'):
-        return 3
-    if v.startswith('three'):
+        return 2
+    if v.startswith('three') or v == 'at least three built':
         return 3
     if v.startswith('four'):
-        return 3
+        return 4
     if v.startswith('five'):
         return 5
     if v.startswith('six'):
@@ -41,7 +41,9 @@ def clean_int(v):
         return 12
     if v in ('none', '?', 'unknown'):
         return None
-    
+    if v in ('none completed', 'unmanned'):
+        return 0
+
     m = REG_INTEGER.search(v)
     if not m:
         print v
@@ -64,12 +66,12 @@ def clean_float_unit(v):
             return float(v[ : -1].strip())
         except ValueError:
             pass
-    
+
     # print repr(v)
 
 def clean_speed_mph(v):
     return float(v) * 1.609
-        
+
 def clean_speed_unit(v):
     m = REG_KMH.search(v)
     if m:
@@ -111,7 +113,7 @@ def clean_length(v):
     #     float(v)
     # except:
     #     print repr(v)
-    
+
 def show(v):
     print repr(v)
 
@@ -147,21 +149,22 @@ KEEPERS = set(['http://dbpedia.org/property/emptyWeightMain',
                'http://dbpedia.org/property/emptyWeightAlt'])
 
 class AircraftModel:
-    
+
     def show(self):
         print self.uri
         for attr in allattrs:
             print '  ', attr, ': ', getattr(self, attr)
 
     def has_data(self):
+        has_some = False
         for attr in allattrs:
             if attr == 'name':
                 continue
 
-            if getattr(self, attr) == 0.0:
-                return False
-            
-        return True
+            if getattr(self, attr) != 0.0:
+                has_some = True
+
+        return has_some
 
     def distance(self, other):
         if isinstance(other, AircraftModel) or isinstance(other, Centroid):
@@ -198,7 +201,7 @@ class Centroid:
 
     def remove(self, member):
         self.members.remove(member)
-            
+
     def __repr__(self):
         return 'cluster%s' % self.number
 
@@ -235,7 +238,7 @@ class Cluster:
             self.members.append(member)
         else:
             self.members += member.members
-            
+
     def __repr__(self):
         return 'cluster%s' % self.number
 
@@ -275,7 +278,7 @@ class Cluster:
                 count += 1
 
         return sum / count
-                
+
 temp = {}
 models = {}
 for line in open('data.txt'):
@@ -323,7 +326,7 @@ allattrs = set()
 for (prop, attr, cleaner) in CLEAN:
     allattrs.add(attr)
 cmpattrs = [attr for attr in allattrs if attr not in ('name', 'number_built')]
-    
+
 maxes = {}
 for model in models.values():
     for attr in allattrs:
@@ -341,10 +344,12 @@ for model in models.values():
 
 allmodels = [model for model in models.values()
              if model.uri.startswith('http://') and model.has_data()]
-        
-# for model in allmodels:
-#     model.show()
-# print len(allmodels)
+
+
+print len(allmodels)
+for model in allmodels:
+    model.show()
+    raw_input()
 
 # ===== K-MEANS CLUSTERING =============================================
 K = 5
@@ -353,7 +358,7 @@ for x in range(K):
     c = random.choice(allmodels)
     while c in centroids:
         c = random.choice(allmodels)
-    
+
     centroids.append(Centroid(x, c))
 
 # # print "===== INITIAL CENTROIDS"
@@ -415,7 +420,7 @@ for c in centroids:
 #     print
 #     print m1
 #     print m2
-    
+
 #     c = Cluster(clusters)
 #     clusters += 1
 #     c.add(m1)
@@ -430,5 +435,5 @@ for c in centroids:
 
 #     print "Craft: ", len([o for o in allobjects if isinstance(o, AircraftModel)])
 #     print "Total:", len(allobjects)
-    
+
 #     raw_input()

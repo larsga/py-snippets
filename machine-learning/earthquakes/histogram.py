@@ -1,5 +1,4 @@
 
-
 import csv, sys, numpy
 
 sizes = []

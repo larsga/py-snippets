@@ -17,7 +17,7 @@ class Corpus:
             return 0.5
         #print t._token, t.spam_probability()
         return t.spam_probability()
-        
+
     def spam(self, token):
         self._count(token, Feature.spam)
 
@@ -54,7 +54,7 @@ def compute_bayes(probs):
         return 0 # happens rarely, but happens
     else:
         return product / (product + lastpart)
-    
+
 def featurize(email):
     #print email
     fp = open(email)
@@ -81,7 +81,7 @@ def featurize(email):
             data = part.get_payload(decode = True).decode(cs)
         except UnicodeDecodeError:
             data = part.get_payload(decode = True).decode('iso-8859-1')
-        
+
         for token in data.split():
             if len(token) < 1000:
                 features.append(token)
@@ -125,14 +125,14 @@ for email in sys.argv[3 : ]:
     for (f, p) in fs[ : 10]:
         print f, p
     print '...'
-    
+
     # print bottom 10
     fs.reverse()
     for (f, p) in fs[ : 10]:
         print f, p
 
 # THRESHOLD = 0.99
-        
+
 # print "Testing the spam_2 directory"
 # ham = 0
 # spam = 0
@@ -158,4 +158,3 @@ for email in sys.argv[3 : ]:
 
 # print '  Ham:', ham
 # print '  Spam:', spam
-
