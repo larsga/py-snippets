@@ -46,7 +46,7 @@ def plot(x, y):
     #plt.show()
     plt.close()
 
-import pso, crap, firefly
+import pso, crap, firefly, cuckoo
 
 def show(swarm):
     x = [p._pos[0] for p in swarm._particles]
@@ -54,7 +54,7 @@ def show(swarm):
     swarm.show()
     plot(x, y)
 
-swarm = firefly.Swarm(
+swarm = cuckoo.Swarm(
     dimensions = [(0.0, 2.0)],
     fitness = lambda x: f(x[0]),
     particles = 5

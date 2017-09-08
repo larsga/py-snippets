@@ -7,7 +7,7 @@ import crap
 # TUNING
 alpha = 0.08 # randomness
 beta  = 1.0  # scale
-gamma = 3.0  # brightness decay
+gamma = 3.0 # brightness decay
 
 class Firefly(crap.Particle):
 
@@ -39,8 +39,6 @@ class Swarm(crap.Swarm):
 
     def __init__(self, dimensions, fitness, particles):
         crap.Swarm.__init__(self, dimensions, fitness, particles, Firefly)
-        for f in self._particles:
-            f._swarm = self
 
     def add_data(self, metadata):
         metadata.update({
