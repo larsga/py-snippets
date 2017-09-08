@@ -84,6 +84,8 @@ logfile = open('log.txt', 'w')
 #train(players.BanditPlayer(sys.argv[1]), CLIHuman (), 1)
 #train(players.BanditPlayer(sys.argv[1]), players.Clever(), 100000)
 
+run_game([CLIHuman(), players.Clever()])
+
 # {0: 90979, 1: 699, None: 8322}
 # {0: 91192, 1: 696, None: 8112}
 # {0: 91755, 1: 674, None: 7571}
@@ -94,7 +96,7 @@ logfile = open('log.txt', 'w')
 # {0: 87428, 1: 1402, None: 11170}
 # {0: 92381, 1: 749, None: 6870}
 # {0: 92403, 1: 677, None: 6920}
-train(players.LearningPlayer(sys.argv[1]), players.Clever(), 100000)
+#train(players.LearningPlayer(sys.argv[1]), players.Clever(), 100000)
 # {0: 19134, 1: 39217, None: 41649}
 #train(players.Clever(), players.LearningPlayer(sys.argv[1]), 100000)
 

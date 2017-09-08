@@ -178,3 +178,8 @@ class BanditExperience(Experience):
         if self.get_plays() == 0:
             return 1.0 # this is the best the average could possibly be
         return self.get_average() + math.sqrt(2 * math.log(total) / self.get_plays())
+
+class MonteCarlo(Player):
+
+    def get_move(self, board):
+        return TreeNode()
