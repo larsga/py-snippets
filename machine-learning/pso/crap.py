@@ -1,5 +1,5 @@
 
-import random, threading, Queue
+import random, threading, Queue, json, uuid
 
 THREADS = 8
 
@@ -64,6 +64,14 @@ class Swarm:
         p._swarm = self
         return p
 
+    def copy(self, particle):
+        p = self.make_particle()
+        p._val = particle._val
+        p._pos = particle._pos
+        p._prev_best_val = particle._prev_best_val
+        p._prev_best_pos = particle._prev_best_pos
+        return p
+
     def get_particles(self):
         return self._particles
 
@@ -98,3 +106,39 @@ class Swarm:
             'algorithm' : 'crap'
         })
         return metadata
+
+def evaluate(swarm, problem, iterations = 100, quiet = False):
+    progress = []
+    for ix in range(iterations):
+        if not quiet:
+            print swarm.add_data({})
+            print ix, round(swarm.get_best_ever()), '=' * 70
+            swarm.show()
+        progress.append(swarm.get_best_ever())
+        swarm.iterate()
+
+    metadata = swarm.add_data({
+        'problem' : problem,
+        'particles' : len(swarm._particles),
+        'dimensions': len(swarm._dimensions),
+        'progress' : progress
+    })
+    return metadata
+
+def average(numbers):
+    return sum(numbers) / len(numbers)
+
+def run_experiment(algorithm, dimensions, fitness, particles, problem,
+                   quiet = False):
+    averages = []
+    for ix in range(100):
+        swarm = algorithm.Swarm(dimensions, fitness, particles)
+        metadata = evaluate(swarm, problem, quiet = quiet)
+
+        outf = open('results/%s.json' % uuid.uuid4(), 'w')
+        outf.write(json.dumps(metadata) + '\n')
+        outf.close()
+
+        averages.append(average(metadata['progress']))
+
+    return averages
