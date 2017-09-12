@@ -67,9 +67,9 @@ class Swarm:
     def copy(self, particle):
         p = self.make_particle()
         p._val = particle._val
-        p._pos = particle._pos
+        p._pos = particle._pos[:]
         p._prev_best_val = particle._prev_best_val
-        p._prev_best_pos = particle._prev_best_pos
+        p._prev_best_pos = particle._prev_best_pos[:]
         return p
 
     def get_particles(self):
@@ -139,6 +139,6 @@ def run_experiment(algorithm, dimensions, fitness, particles, problem,
         outf.write(json.dumps(metadata) + '\n')
         outf.close()
 
-        averages.append(average(metadata['progress']))
+        averages.append(metadata['progress'][-1])
 
     return averages
