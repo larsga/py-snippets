@@ -1,3 +1,6 @@
+'''
+Incomplete implementation of fish-school search I never had time to finish.
+'''
 
 import random
 

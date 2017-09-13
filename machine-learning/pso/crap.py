@@ -125,7 +125,8 @@ def evaluate(swarm, problem, iterations = 100, quiet = False):
         swarm.iterate()
 
     if not quiet:
-        print swarm.get_best_ever_pos()
+        print 'SOLUTION:', swarm.get_best_ever_pos()
+        print 'FITNESS:', swarm.get_best_ever()
 
     metadata = swarm.add_data({
         'problem' : problem,
