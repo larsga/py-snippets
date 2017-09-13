@@ -100,6 +100,13 @@ class Swarm:
         return reduce(lambda x, y: max(x, y),
                       [p._prev_best_val for p in self._particles])
 
+    def get_best_ever_pos(self):
+        p = self._particles[0]
+        for p2 in self._particles:
+            if p._prev_best_val < p2._prev_best_val:
+                p = p2
+
+        return p._prev_best_pos
 
     def add_data(self, metadata):
         metadata.update({
@@ -117,6 +124,9 @@ def evaluate(swarm, problem, iterations = 100, quiet = False):
         progress.append(swarm.get_best_ever())
         swarm.iterate()
 
+    if not quiet:
+        print swarm.get_best_ever_pos()
+
     metadata = swarm.add_data({
         'problem' : problem,
         'particles' : len(swarm._particles),
@@ -129,9 +139,9 @@ def average(numbers):
     return sum(numbers) / len(numbers)
 
 def run_experiment(algorithm, dimensions, fitness, particles, problem,
-                   quiet = False):
+                   quiet = False, attempts = 100):
     averages = []
-    for ix in range(100):
+    for ix in range(attempts):
         swarm = algorithm.Swarm(dimensions, fitness, particles)
         metadata = evaluate(swarm, problem, quiet = quiet)
 

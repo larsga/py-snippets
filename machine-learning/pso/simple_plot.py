@@ -3,8 +3,8 @@ Test driver to apply the algorithms to a toy problem.
 '''
 
 import math
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+# import matplotlib.pyplot as plt
+# import matplotlib.cm as cm
 import numpy as np
 import random
 
@@ -20,7 +20,7 @@ def f2(x):
 def f(x):
     return f1(x) + f2a(x)
 
-colours = cm.rainbow(np.linspace(0, 1, 5))
+# colours = cm.rainbow(np.linspace(0, 1, 5))
 
 count = 0
 def plot(x, y):
@@ -46,7 +46,7 @@ def plot(x, y):
     #plt.show()
     plt.close()
 
-import pso, crap, firefly, cuckoo
+import pso, crap, firefly, cuckoo, genetic
 
 def show(swarm):
     x = [p._pos[0] for p in swarm._particles]
@@ -54,17 +54,71 @@ def show(swarm):
     swarm.show()
     plot(x, y)
 
-swarm = cuckoo.Swarm(
-    dimensions = [(0.0, 2.0)],
-    fitness = lambda x: f(x[0]),
-    particles = 5
-)
+import function, math
 
-for ix in range(20):
-    print '=' * 75
-    show(swarm)
-    swarm.iterate()
+# ===========================================================================
+# SOLVE MICHAELWICZ WITH FIREFLY AS PER META
 
+# averages = crap.run_experiment(
+#     firefly,
+#     #dimensions = [(0.0, math.pi)] * 16, # michaelwicz
+#     dimensions = [(-512, 512)] * 10,
+#     fitness = function.griewangk,
+#     particles = 20,
+#     problem = 'griewangk3',
+#     quiet = False,
+#     attempts = 1
+# )
+# print crap.average(averages)
+
+# ===========================================================================
+# USE PSO TO OPTIMIZE FIREFLY FOR MICHAELWICZ
+
+def fitness(pos):
+    (alpha, beta, gamma) = pos
+
+    firefly.alpha = alpha
+    firefly.beta = beta
+    firefly.gamma = gamma
+    averages = crap.run_experiment(
+        firefly,
+        #dimensions = [(0.0, math.pi)] * 16,
+        dimensions = [(-512, 512)] * 10,
+        fitness = function.griewangk,
+        particles = 20,
+        problem = 'griewangk3',
+        quiet = True
+    )
+    return crap.average(averages)
+
+dimensions = [(0.0, 1.0), (0.0, 500.0), (0.0, 500.0)] # alpha, beta, gamma
+swarm = pso.Swarm(dimensions, fitness, 10)
+crap.evaluate(swarm, 'meta-griewangk-firefly')
+
+# ===========================================================================
+# import function, math
+
+# crap.run_experiment(
+#     crap,
+#     dimensions = [(0.0, math.pi)] * 16,
+#     fitness = function.michaelwicz,
+#     particles = 20,
+#     problem = 'michaelwicz'
+# )
+
+# ===========================================================================
+# swarm = genetic.Swarm(
+#     dimensions = [(0.0, 2.0)],
+#     fitness = lambda x: f(x[0]),
+#     particles = 5
+# )
+
+# for ix in range(20):
+#     print '=' * 75
+#     show(swarm)
+#     swarm.iterate()
+
+# ===========================================================================
 # results = []
 # for attempt_no in range(1000):
 #     swarm = firefly.Swarm(
