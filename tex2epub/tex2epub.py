@@ -7,8 +7,6 @@ import sys, codecs, string, os, zipfile, uuid, shutil
 
 TOC_DEPTH = 2
 
-(fromfile, tofile) = sys.argv[1 : ]
-fromdir = os.path.split(fromfile)[0]
 WHITESPACE = ' \n\r\t'
 COMMANDCHAR = string.letters + '*%=.'
 
@@ -947,11 +945,15 @@ class FilterHandler:
     def close(self):
         self._handler.close()
 
-# first we build the ToC and record the labels
-builder = TocBuilder()
-source = codecs.open(fromfile, 'r', 'utf-8').read()
-parse_latex(source, FilterHandler(DocumentHandler(builder)))
+if __name__ == '__main__':
+    (fromfile, tofile) = sys.argv[1 : ]
+    fromdir = os.path.split(fromfile)[0]
 
-# then we're ready to actually produce some epub
-handler = FilterHandler(DocumentHandler(EpubWriter(tofile, builder.get_map())))
-parse_latex(source, handler)
+    # first we build the ToC and record the labels
+    builder = TocBuilder()
+    source = codecs.open(fromfile, 'r', 'utf-8').read()
+    parse_latex(source, FilterHandler(DocumentHandler(builder)))
+
+    # then we're ready to actually produce some epub
+    handler = FilterHandler(DocumentHandler(EpubWriter(tofile, builder.get_map())))
+    parse_latex(source, handler)
