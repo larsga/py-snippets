@@ -945,6 +945,30 @@ class FilterHandler:
     def close(self):
         self._handler.close()
 
+class IncludeHandler:
+    '''Follows include references.'''
+
+    def __init__(self, path, handler):
+        self._path = path
+        self._handler = handler
+
+    def command(self, name, braces, brackets):
+        if name == 'include':
+            filename = os.path.join(self._path, braces + '.tex')
+            source = codecs.open(filename, 'r', 'utf-8').read()
+            #print 'PARSING', filename
+            parse_latex(source, self)
+        else:
+            #print 'COMMAND', repr(braces), repr(brackets)
+            self._handler.command(name, braces, brackets)
+
+    def text(self, text):
+        #print 'TEXT', repr(text)
+        self._handler.text(text)
+
+    def close(self):
+        self._handler.close()
+
 if __name__ == '__main__':
     (fromfile, tofile) = sys.argv[1 : ]
     fromdir = os.path.split(fromfile)[0]
