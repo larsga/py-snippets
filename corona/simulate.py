@@ -11,14 +11,9 @@ from collections import namedtuple
 from datetime import date, timedelta, datetime
 
 # FIXME:
-#   - fatter-tailed distribution for death
-#   - if we index the population by what date they'll make their
-#     next move we can save a lot of time(?)
-#   - dump simulation output to file so we can graph various ways
-#     without having to run again
 #   - output RMSE against known numbers?
 #   - imported test boost has no effect (bug)
-#   - what if we graph new deaths per day?
+#   - what if we graph new deaths/infections per day?
 
 import norway, china, italy, example
 
@@ -27,7 +22,7 @@ if len(sys.argv) > 2:
 else:
     SIMULATIONS = 100
 
-model = example #norway
+model = norway
 if len(sys.argv) >= 2:
     m = sys.argv[1]
     if m == 'norway':
