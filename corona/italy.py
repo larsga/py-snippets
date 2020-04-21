@@ -10,7 +10,6 @@ BAD_SICK_ODDS = 0.16
 DEATH_RATE = 0.01
 
 POPULATION = 60 * 10**6
-IMMUNITY_BOOST = 1.5
 
 HOSPITAL_LIMIT = 3000
 FULL_HOSPITAL_MULTIPLIER = 6.5
@@ -22,14 +21,13 @@ import_rates = [
     (date(year = 2020, month = 02, day = 01), 220),
 ]
 
-def get_r0(day, cases):
+def get_r0(day):
     if day <= date(year = 2020, month = 03, day = 8):
         r0 = R0_BEFORE
     else:
         r0 = R0_AFTER
 
-    immunity_factor = (1.0 - ((cases * IMMUNITY_BOOST) / float(POPULATION)))
-    return immunity_factor * r0
+    return r0
 
 def get_death_rate(hospitalized):
     factor = FULL_HOSPITAL_MULTIPLIER if hospitalized > HOSPITAL_LIMIT else 1

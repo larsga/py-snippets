@@ -50,7 +50,7 @@ class Generator:
             delta = int(random.gauss(self._avg, self._var))
         return day + timedelta(days = delta)
 
-stop = date(year = 2020, month = 4, day = 15)
+stop = date(year = 2020, month = 9, day = 1)
 
 # https://drive.google.com/file/d/1DqfSnlaW6N3GBc5YKyBOCGPfdqOsqk1G/view
 #   average time from diagnosis to death = 14 (symptoms + 4.5 = diagnosis?)
@@ -72,12 +72,20 @@ DEAD             = 'DEAD'
 
 IMPORT_DAMPING = 0.1
 
+# this will cause total number of infected people to overshoot the
+# theoretical max 'predicted' by the r0, but this is actually correct
+# https://twitter.com/CT_Bergstrom/status/1251999295231819778
+def get_re(day, cases):
+    r0 = model.get_r0(day)
+    immunity_factor = (1.0 - (cases / float(model.POPULATION)))
+    return immunity_factor * r0
+
 avg_days = 1 + TIME_TO_SPLIT._avg + (
     GOOD_RECOVER_TIME._avg * (1.0 - model.BAD_SICK_ODDS) +
     (BAD_FORK_TIME._avg + BAD_RECOVER_TIME._avg) * model.BAD_SICK_ODDS
 )
-def infection_odds_pr_day(r0):
-    return r0 / avg_days
+def infection_odds_pr_day(re):
+    return re / avg_days
 
 class InfectedPerson:
     def __init__(self, infected_day, state = BEFORE, imported = False):
@@ -92,7 +100,7 @@ class InfectedPerson:
         if self._state in (RECOVERED, DEAD):
             return False
 
-        infect = self.is_sick() and random.uniform(0.0, 1.0) < infection_odds_pr_day(model.get_r0(day, cases))
+        infect = self.is_sick() and random.uniform(0.0, 1.0) < infection_odds_pr_day(get_re(day, cases))
 
         if self._next_change > day:
             return infect
@@ -175,7 +183,7 @@ def simulate(today, output = True):
 
     while today <= stop:
         if SIMULATIONS == 1:
-            print today, cases, model.get_r0(today, cases), accums[DEAD]
+            print today, cases, get_re(today, cases), accums[DEAD]
         (newly_infected, import_rate) = iterate(people, today)
         home_infected += newly_infected
         imported += import_rate
@@ -249,7 +257,7 @@ if len(sys.argv) == 4:
     with open(filename, 'w') as f:
         tmp = [{str(date) : data for (date, data) in by_day}
                    for by_day in results]
-        json.dump(results, f)
+        json.dump(tmp, f)
 
 # ----- PLOTTING
 from matplotlib import pyplot as plt
