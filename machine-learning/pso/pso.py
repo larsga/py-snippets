@@ -1,5 +1,5 @@
 
-import random
+import random, math
 
 from crap import round # the base swarm model
 import crap
@@ -65,7 +65,9 @@ class Particle(crap.Particle):
 
 class Swarm(crap.Swarm):
 
-    def __init__(self, dimensions, fitness, particles):
+    def __init__(self, dimensions, fitness, particles = None):
+        if not particles:
+            particles = 10 + int(2 * math.sqrt(len(dimensions)))
         crap.Swarm.__init__(self, dimensions, fitness, particles, Particle)
 
         # all topology
