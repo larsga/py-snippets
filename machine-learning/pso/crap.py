@@ -34,6 +34,9 @@ class Particle:
         self._pos[ix] = min(max(self._pos[ix], self._dimensions[ix][0]),
                             self._dimensions[ix][1])
 
+    def show_titles(self):
+        print '\t'.join(['VALUE', 'P1', 'P2', 'P3', 'P4', 'P5', 'BEST_VAL'])
+
     def show(self):
         l = ([round(self._val)] +
              map(round, self._pos[ : 5]) +
@@ -93,6 +96,7 @@ class Swarm:
     #         t.join()
 
     def show(self):
+        self._particles[0].show_titles()
         for p in self._particles:
             p.show()
 
@@ -119,7 +123,7 @@ def evaluate(swarm, problem, iterations = 100, quiet = False):
     for ix in range(iterations):
         if not quiet:
             print swarm.add_data({})
-            print ix, round(swarm.get_best_ever()), '=' * 70
+            print ix, round(swarm.get_best_ever()), '=' * 67
             swarm.show()
         progress.append(swarm.get_best_ever())
         swarm.iterate()
