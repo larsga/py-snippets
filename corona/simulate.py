@@ -50,16 +50,16 @@ class Generator:
             delta = int(random.gauss(self._avg, self._var))
         return day + timedelta(days = delta)
 
-stop = date(year = 2020, month = 9, day = 1)
+stop = date(year = 2020, month = 9, day = 1) # date.today()
 
 # https://drive.google.com/file/d/1DqfSnlaW6N3GBc5YKyBOCGPfdqOsqk1G/view
 #   average time from diagnosis to death = 14 (symptoms + 4.5 = diagnosis?)
 
 LATENCY = Generator(avg = 5.1, var = 1)
-TIME_TO_SPLIT = Generator(avg = 7, var = 2)
+TIME_TO_SPLIT = Generator(avg = 8, var = 2)
 GOOD_RECOVER_TIME = Generator(avg = 14, var = 2)
-BAD_FORK_TIME = Generator(avg = 11, var = 3, lognormal = True)
-BAD_RECOVER_TIME = Generator(avg = 3.5, var = 2)
+BAD_FORK_TIME = Generator(avg = 13, var = 3, lognormal = True)
+BAD_RECOVER_TIME = Generator(avg = 7.5, var = 2)
 TIME_TO_TEST = Generator(avg = 4, var = 2)
 
 BEFORE           = 'BEFORE'
@@ -75,8 +75,8 @@ IMPORT_DAMPING = 0.1
 # this will cause total number of infected people to overshoot the
 # theoretical max 'predicted' by the r0, but this is actually correct
 # https://twitter.com/CT_Bergstrom/status/1251999295231819778
-def get_re(day, cases):
-    r0 = model.get_r0(day)
+def get_re(get_r0, day, cases):
+    r0 = get_r0(day)
     immunity_factor = (1.0 - (cases / float(model.POPULATION)))
     return immunity_factor * r0
 
@@ -94,13 +94,11 @@ class InfectedPerson:
         self._imported = imported
         self._test_positive_date = None
 
-    def iterate(self, day):
-        global cases, hospitalized
-
+    def iterate(self, day, re, hospitalized):
         if self._state in (RECOVERED, DEAD):
             return False
 
-        infect = self.is_sick() and random.uniform(0.0, 1.0) < infection_odds_pr_day(get_re(day, cases))
+        infect = self.is_sick() and random.uniform(0.0, 1.0) < infection_odds_pr_day(re)
 
         if self._next_change > day:
             return infect
@@ -144,12 +142,10 @@ class InfectedPerson:
     def is_sick(self):
         return self._state in (SICK, SICK_BAD, SICK_GOOD)
 
-def iterate(people, day):
-    global home_infected, imported
-
+def iterate(people, day, re, hospitalized):
     newly_infected = 0
     for p in people:
-        if p.iterate(day):
+        if p.iterate(day, re, hospitalized):
             newly_infected += 1
 
     for ix in range(newly_infected):
@@ -172,9 +168,9 @@ def count_by(seq, keyfunc):
         count[k] = count.get(k, 0) + 1
     return count
 
-def simulate(today, output = True):
-    global cases, hospitalized
-
+def simulate(today, get_r0, output = True):
+    cases = 0
+    hospitalized = 0
     by_day = []
     people = [InfectedPerson(today) for ix in range(model.initial_cases)]
     accums = {DEAD : 0, RECOVERED : 0, 'positive' : 0}
@@ -182,9 +178,11 @@ def simulate(today, output = True):
     imported = 1
 
     while today <= stop:
+        todays_re = get_re(get_r0, today, cases)
         if SIMULATIONS == 1:
-            print today, cases, get_re(today, cases), accums[DEAD]
-        (newly_infected, import_rate) = iterate(people, today)
+            print today, cases, todays_re, accums[DEAD]
+
+        (newly_infected, import_rate) = iterate(people, today, todays_re, hospitalized)
         home_infected += newly_infected
         imported += import_rate
 
@@ -213,27 +211,20 @@ def simulate(today, output = True):
         by_day.append((today, count))
         today += timedelta(days = 1)
 
-    # print cases
     return by_day
-
-results = []
-for ix in range(SIMULATIONS):
-    cases = 0
-    hospitalized = 0
-    results.append(simulate(model.start, False))
-    if SIMULATIONS > 1:
-        print ix + 1
 
 # ----- CSV HANDLING
 import csv
 
-rows = [row for row in csv.reader(open(model.csv_file))]
-rows = rows[1 : ] # drop header
+def load_csv(filename):
+    rows = [row for row in csv.reader(open(filename))]
+    rows = rows[1 : ] # drop header
 
-Row = namedtuple('Row', ('date', 'dead', 'positives', 'infected_locally',
-                         'infected_abroad', 'infected_unknown', 'hospital',
-                         'icu'))
-rows = [Row._make(row) for row in rows]
+    Row = namedtuple('Row', ('date', 'dead', 'positives', 'infected_locally',
+                             'infected_abroad', 'infected_unknown', 'hospital',
+                             'icu'))
+    rows = [Row._make(row) for row in rows]
+    return rows
 
 # ----- PRODUCE DATA
 
@@ -245,22 +236,30 @@ def average_of_field(results, field):
         )
     return data
 
-hospitalized = average_of_field(results, SICK_BAD)
-dead = average_of_field(results, DEAD)
-cases = average_of_field(results, 'cases')
-positives = average_of_field(results, 'positive')
+if __name__ == '__main__':
+    results = []
+    for ix in range(SIMULATIONS):
+        results.append(simulate(model.start, model.get_r0, False))
+        if SIMULATIONS > 1:
+            print ix + 1
 
-# ----- DATA EXPORT
+if __name__ == '__main__':
+    rows = load_csv(model.csv_file)
+    hospitalized = average_of_field(results, SICK_BAD)
+    dead = average_of_field(results, DEAD)
+    cases = average_of_field(results, 'cases')
+    positives = average_of_field(results, 'positive')
 
-if len(sys.argv) == 4:
-    filename = sys.argv[3]
-    with open(filename, 'w') as f:
-        tmp = [{str(date) : data for (date, data) in by_day}
-                   for by_day in results]
-        json.dump(tmp, f)
+    # ----- DATA EXPORT
+
+    if len(sys.argv) == 4:
+        filename = sys.argv[3]
+        with open(filename, 'w') as f:
+            tmp = [{str(date) : data for (date, data) in by_day}
+                       for by_day in results]
+            json.dump(tmp, f)
 
 # ----- PLOTTING
-from matplotlib import pyplot as plt
 
 def prepare(rows, field):
     y = [datetime.strptime(row.date, '%Y-%m-%d') for row in rows
@@ -269,24 +268,27 @@ def prepare(rows, field):
          if getattr(row, field) != '_']
     return (y, x)
 
-days = [by_day[0] for by_day in results[0]]
-plt.plot(days, hospitalized, 'g', label = u'Currently hospitalized')
-plt.plot(days, dead, 'r', label = u'Dead, accumulated')
+if __name__ == '__main__':
+    from matplotlib import pyplot as plt
 
-csv_dead = prepare(rows, 'dead')
-csv_hospital = prepare(rows, 'hospital')
-csv_positives = prepare(rows, 'positives')
+    days = [by_day[0] for by_day in results[0]]
+    plt.plot(days, hospitalized, 'g', label = u'Currently hospitalized')
+    plt.plot(days, dead, 'r', label = u'Dead, accumulated')
 
-plt.plot(csv_dead[0], csv_dead[1], 'ro', label = u'Dead, accumulated')
-plt.plot(csv_hospital[0], csv_hospital[1], 'go', label = u'Currently hospitalized')
-plt.legend(loc='upper left')
-plt.title(model.title)
-plt.show()
+    csv_dead = prepare(rows, 'dead')
+    csv_hospital = prepare(rows, 'hospital')
+    csv_positives = prepare(rows, 'positives')
+
+    plt.plot(csv_dead[0], csv_dead[1], 'ro', label = u'Dead, accumulated')
+    plt.plot(csv_hospital[0], csv_hospital[1], 'go', label = u'Currently hospitalized')
+    plt.legend(loc='upper left')
+    plt.title(model.title)
+    plt.show()
 
 
-plt.plot(days, cases, 'r', label = u'Infected')
-plt.plot(days, positives, 'g', label = u'Tested positive')
-plt.plot(csv_positives[0], csv_positives[1], 'go', label = u'Tested positive')
-plt.legend(loc='upper left')
-plt.title(model.title)
-plt.show()
+    plt.plot(days, cases, 'r', label = u'Infected')
+    plt.plot(days, positives, 'g', label = u'Tested positive')
+    plt.plot(csv_positives[0], csv_positives[1], 'go', label = u'Tested positive')
+    plt.legend(loc='upper left')
+    plt.title(model.title)
+    plt.show()
