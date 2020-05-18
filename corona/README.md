@@ -45,3 +45,15 @@ have been set based on available research.
 |------|-----|----|-------|
 |[2](https://www.acpjournals.org/doi/pdf/10.7326/M20-0504)|5.1|2020-03-10|Median, 95% CI 4.5-5.8|
 |[6](https://www.mdpi.com/2077-0383/9/2/538)|5|2020-01-25|Median|
+
+### Infection fatality rate
+
+|Source|Value|Date|Comment|
+|------|-----|----|-------|
+|[4](https://www.medrxiv.org/content/10.1101/2020.03.09.20033357v1.full.pdf)|0.66|2020-03-13|For China, 0.39%-1.33%|
+
+### Time from symptoms to hospitalization
+
+|Source|Value|Date|Comment|
+|------|-----|----|-------|
+|[5](https://jamanetwork.com/journals/jama/fullarticle/2761044)|7|2020-02-07|China, IQR 4-8|
