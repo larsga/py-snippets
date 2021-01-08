@@ -15,12 +15,15 @@ from datetime import date, timedelta, datetime
 #   - imported test boost has no effect (bug)
 #   - what if we graph new deaths/infections per day?
 
-import norway, china, italy, example
+import norway, china, italy, example, kormod
 
 if len(sys.argv) > 2:
     SIMULATIONS = int(sys.argv[2])
 else:
     SIMULATIONS = 100
+
+# stop = date.today()
+stop = date(year = 2020, month = 12, day = 31)
 
 model = norway
 if len(sys.argv) >= 2:
@@ -33,6 +36,8 @@ if len(sys.argv) >= 2:
         model = italy
     elif m == 'example':
         model = example
+    elif m == 'kormod':
+        model = kormod
     else:
         assert False
 
@@ -49,8 +54,6 @@ class Generator:
         else:
             delta = int(random.gauss(self._avg, self._var))
         return day + timedelta(days = delta)
-
-stop = date(year = 2020, month = 9, day = 1) # date.today()
 
 # https://drive.google.com/file/d/1DqfSnlaW6N3GBc5YKyBOCGPfdqOsqk1G/view
 #   average time from diagnosis to death = 14 (symptoms + 4.5 = diagnosis?)
@@ -201,10 +204,10 @@ def simulate(today, get_r0, output = True):
         people = [p for p in people if p._state not in (DEAD, RECOVERED)]
         assert count_by(people, lambda p: p._state).get(DEAD, 0) == 0
 
-        hospitalized = count.get(SICK_BAD, 0)
         cases = len(people) + accums[DEAD] + accums[RECOVERED]
         count.update(accums)
         count['cases'] = cases
+        count['hospitalized'] = count.get(SICK_BAD, 0) + count.get(SICK_BAD_RECOVER, 0)
         if output:
             print count
 
@@ -236,6 +239,15 @@ def average_of_field(results, field):
         )
     return data
 
+def average_of_fields(results, fields):
+    data = []
+    for ix in range(len(results[0])):
+        data.append(
+            sum([sum([by_day[ix][1].get(field, 0) for field in fields])
+                 for by_day in results]) / float(SIMULATIONS)
+        )
+    return data
+
 if __name__ == '__main__':
     results = []
     for ix in range(SIMULATIONS):
@@ -245,7 +257,7 @@ if __name__ == '__main__':
 
 if __name__ == '__main__':
     rows = load_csv(model.csv_file)
-    hospitalized = average_of_field(results, SICK_BAD)
+    hospitalized = average_of_field(results, 'hospitalized')
     dead = average_of_field(results, DEAD)
     cases = average_of_field(results, 'cases')
     positives = average_of_field(results, 'positive')
