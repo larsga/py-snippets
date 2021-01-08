@@ -6,7 +6,7 @@
 # it did what I wanted it to do, but it will make it unpleasant to
 # work with for others. You have been warned.
 
-import random, sys, json
+import random, sys, json, math
 from collections import namedtuple
 from datetime import date, timedelta, datetime
 
@@ -23,7 +23,7 @@ else:
     SIMULATIONS = 100
 
 # stop = date.today()
-stop = date(year = 2020, month = 12, day = 31)
+stop = date(year = 2021, month = 05, day = 31)
 
 model = norway
 if len(sys.argv) >= 2:
@@ -83,12 +83,40 @@ def get_re(get_r0, day, cases):
     immunity_factor = (1.0 - (cases / float(model.POPULATION)))
     return immunity_factor * r0
 
+# ----- infectious probability by day
+def factorial(n):
+    f = 1
+    for k in range(1, n + 1):
+        f *= k
+    return f
+
+def poisson(v, l):
+    return ((l ** v * math.e ** (-l) / factorial(v)))
+
+# https://science.sciencemag.org/content/early/2020/11/23/science.abe2424
+def prob(day):
+    day -= 1
+    return (poisson(day, 3) +
+            (poisson(day, 5) * 0.25) +
+            (poisson(day, 6) * 0.5) +
+            (poisson(day, 8) * 0.5)
+            ) / 2.25
+# ----- end
+
 avg_days = 1 + TIME_TO_SPLIT._avg + (
     GOOD_RECOVER_TIME._avg * (1.0 - model.BAD_SICK_ODDS) +
     (BAD_FORK_TIME._avg + BAD_RECOVER_TIME._avg) * model.BAD_SICK_ODDS
 )
-def infection_odds_pr_day(re):
-    return re / avg_days
+# uniform probability distribution
+def infection_odds_pr_day(sick, re, day):
+    if sick:
+        return re / avg_days
+    else:
+        return 0
+
+# more scientific
+def infection_odds_pr_day(sick, re, day):
+    return prob(day) * re
 
 class InfectedPerson:
     def __init__(self, infected_day, state = BEFORE, imported = False):
@@ -96,12 +124,14 @@ class InfectedPerson:
         self._next_change = LATENCY.next(infected_day)
         self._imported = imported
         self._test_positive_date = None
+        self._day = 0 # days since infection
 
     def iterate(self, day, re, hospitalized):
+        self._day += 1
         if self._state in (RECOVERED, DEAD):
-            return False
+            return 0
 
-        infect = self.is_sick() and random.uniform(0.0, 1.0) < infection_odds_pr_day(re)
+        infect = random.uniform(0.0, 1.0) < infection_odds_pr_day(self.is_sick(), re, self._day)
 
         if self._next_change > day:
             return infect
@@ -140,7 +170,7 @@ class InfectedPerson:
         else:
             assert False
 
-        return infect
+        return 1 if infect else 0
 
     def is_sick(self):
         return self._state in (SICK, SICK_BAD, SICK_GOOD)
@@ -148,8 +178,7 @@ class InfectedPerson:
 def iterate(people, day, re, hospitalized):
     newly_infected = 0
     for p in people:
-        if p.iterate(day, re, hospitalized):
-            newly_infected += 1
+        newly_infected += p.iterate(day, re, hospitalized)
 
     for ix in range(newly_infected):
         people.append(InfectedPerson(day))
