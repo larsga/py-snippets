@@ -13,23 +13,21 @@ from datetime import date, timedelta, datetime
 # FIXME:
 #   - output RMSE against known numbers?
 #   - imported test boost has no effect (bug)
-#   - what if we graph new deaths/infections per day?
 
-import norway, china, italy, example, kormod
+import norway, china, italy, example, kormod, norway2020
 
 if len(sys.argv) > 2:
     SIMULATIONS = int(sys.argv[2])
 else:
     SIMULATIONS = 100
 
-# stop = date.today()
-stop = date(year = 2021, month = 05, day = 31)
-
 model = norway
 if len(sys.argv) >= 2:
     m = sys.argv[1]
     if m == 'norway':
         model = norway
+    elif m == 'norway2020':
+        model = norway2020
     elif m == 'italy':
         model = italy
     elif m == 'china':

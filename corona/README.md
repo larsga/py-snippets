@@ -11,19 +11,22 @@ python simulate.py norway 1
 ```
 
 First parameter chooses the configuration, second parameter the number
-of simulation runs.
+of simulation runs. (It runs *much* faster with pypy.)
 
 By editing the configurations you can change assumptions about initial
 cases, imported cases, reproduction number at different times, etc etc.
 You can also change the end date.
 
 The model covers:
+  * imported cases,
   * incubation time,
   * time to hospitalization,
   * time to death,
   * time to recovery,
-  * herd immunity (requires setting population size), and
-  * (crudely) effects of overloaded healthcare services.
+  * herd immunity (requires setting population size),
+  * (crudely) effects of overloaded healthcare services,
+  * mutant versions of the virus,
+  * vaccination programs.
 
 ## Sources for model parameters
 
@@ -86,3 +89,7 @@ have been set based on available research.
 |Source|Value|Date|Comment|
 |------|-----|----|-------|
 |[8](https://files.ssi.dk/COVID19-epi-trendogfokus-25052020-us12)|18|2020-05-25|Average|
+
+### Probability of infecting others by day after own infection
+
+[Sun et al, 2021](https://science.sciencemag.org/content/early/2020/11/23/science.abe2424). Specifically [figure 3](https://science.sciencemag.org/content/sci/371/6526/eabe2424/F4.large.jpg?width=800&height=600&carousel=1).
