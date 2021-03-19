@@ -2,7 +2,8 @@
 # Covid-19 model
 
 A simple SEIR-like model of the covid-19 epidemic, with three pre-made
-configurations for Norway, Italy, and China. Requires matplotlib.
+configurations for Norway, Italy, and China. Can store results of runs
+as JSON files for later analysis/graphing.
 
 To try it out, run:
 
@@ -15,7 +16,6 @@ of simulation runs. (It runs *much* faster with pypy.)
 
 By editing the configurations you can change assumptions about initial
 cases, imported cases, reproduction number at different times, etc etc.
-You can also change the end date.
 
 The model covers:
   * imported cases,
@@ -58,6 +58,11 @@ have been set based on available research.
 |------|-----|----|-------|
 |[4](https://www.medrxiv.org/content/10.1101/2020.03.09.20033357v1.full.pdf)|0.66|2020-03-13|For China, 0.39%-1.33%|
 |[7](https://www.medrxiv.org/content/10.1101/2020.05.03.20089854v2.article-metrics)|0.75|2020-05-18|Meta-study.|
+|[10](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7721859)|Age-stratified|2020-12-08||
+
+In practice the theoretical IFR appears to be higher than actual
+fatality, because the infected are generally younger, so for
+estimation in practice CFR may be more useful.
 
 ### Time from symptoms to hospitalization
 
