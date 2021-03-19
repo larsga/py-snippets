@@ -93,14 +93,30 @@ csv_file = 'norway.csv'
 
 # --- population age structure
 
-REG_AGE = re.compile('(\d+)(-| ).*')
-def parse_age(alder):
-    return int(REG_AGE.match(alder).group(1))
-
-age_bands = [(parse_age(row['alder']), int(row['Personer 2020']))
-    for row in csv.DictReader(open('Personer.csv'), delimiter = ';')
+# Source https://www.ssb.no/statbank/table/10211/
+age_bands = [
+    (100, 1119),
+    (95, 9661),
+    (90, 34450),
+    (85, 71765),
+    (80, 113715),
+    (75, 176382),
+    (70, 259452),
+    (65, 275272),
+    (60, 307223),
+    (55, 331899),
+    (50, 371931),
+    (45, 376148),
+    (40, 347515),
+    (35, 356323),
+    (30, 374224),
+    (25, 370923),
+    (20, 340829),
+    (15, 318622),
+    (10, 324769),
+    (5, 315295),
+    (0, 290063)
 ]
-age_bands.reverse()
 
 def get_adjusted_age_bands(vaccinated):
     bands = []
