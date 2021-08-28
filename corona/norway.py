@@ -2,9 +2,11 @@
 import re, csv
 from datetime import date, timedelta, datetime
 
-start = date(year = 2020, month = 9, day = 1)
-stop = date(year = 2021, month = 5, day = 1)
-initial_cases = 60
+start = date(year = 2021, month = 6, day = 1)
+stop = date(year = 2021, month = 11, day = 1)
+initial_cases = 1200
+
+PREVIOUSLY_INFECTED = 125563 # ie, before start date
 
 BAD_SICK_ODDS = 0.01
 # we reduce the death rate from the paper by this empirical factor...
@@ -19,13 +21,14 @@ FULL_HOSPITAL_MULTIPLIER = 5
 
 TEST_PROBABILITY = 0.7
 IMPORTED_TEST_BOOST = 2
-MUTANT_R_BOOST = 0.5
+MUTANT_R_FACTOR = 0.5
 MUTANT_BAD_OUTCOME_BOOST = 1.6
 
-VACCINATION_SKEPTICS = 0.3
-VACCINE_SPEED = 3.3
+VACCINATION_SKEPTICS = 0.1
+VACCINE_SPEED = 3.7
 # alle over 18 innen slutten av august: 4183831
 MAX_DOSES = 4183831 * (1.0 - VACCINATION_SKEPTICS)
+VACCINATION_START = date(year = 2021, month = 1, day = 1)
 
 import_rates = [
     (date(year = 2020, month = 9, day = 15), 9, False),
@@ -36,12 +39,12 @@ import_rates = [
 
 _ = date(year = 2031, month = 3, day = 17)
 R0 = [
-    (1.155, date(year = 2021, month = 1, day = 1)), # r0 until date
-    (0.80, date(year = 2021, month = 1, day = 29)),
-    (1.00, date(year = 2021, month = 3, day = 9)),
-    (0.85, date(year = 2021, month = 3, day = 17)),
-    (0.70, date(year = 2021, month = 3, day = 26)),
-    (0.50, _),
+    (1.45, date(year = 2021, month = 7, day = 7)), # r0 until date
+    (1.90, date(year = 2021, month = 7, day = 15)),
+    (2.10, date(year = 2021, month = 7, day = 22)),
+    (2.20, date(year = 2021, month = 8, day = 8)),
+    (2.70, date(year = 2021, month = 8, day = 20)),
+    (2.80, _),
 ]
 
 def get_r0(day):
@@ -57,7 +60,7 @@ class VaccinationProgram:
 
     def __init__(self):
         self._start_date = date(year = 2021, month = 1, day = 1)
-        self._stop_date = date(year = 2021, month = 8, day = 31)
+        self._stop_date = date(year = 2021, month = 9, day = 30)
         self._vacc_per_day = 2450 * VACCINE_SPEED
         self._vacc_rate_inc = ((16500-2450) / (11.0 * 30)) * VACCINE_SPEED
 

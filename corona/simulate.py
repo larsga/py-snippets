@@ -14,7 +14,7 @@ from datetime import date, timedelta, datetime
 #   - output RMSE against known numbers?
 #   - imported test boost has no effect (bug)
 
-import norway, china, italy, example, kormod, norway2020
+import norway, china, italy, example, kormod, norway2020, trondheim
 
 if len(sys.argv) > 2:
     SIMULATIONS = int(sys.argv[2])
@@ -36,6 +36,8 @@ if len(sys.argv) >= 2:
         model = example
     elif m == 'kormod':
         model = kormod
+    elif m == 'trondheim':
+        model = trondheim
     else:
         assert False
 
@@ -101,6 +103,8 @@ def prob(day):
             (poisson(day, 6) * 0.5) +
             (poisson(day, 8) * 0.5)
             ) / 2.25
+
+precomputed_day_prob = [prob(day) for day in range(100)]
 # ----- end
 
 avg_days = 1 + TIME_TO_SPLIT._avg + (
@@ -116,7 +120,7 @@ def infection_odds_pr_day(sick, re, day):
 
 # more scientific
 def infection_odds_pr_day(sick, re, day):
-    return prob(day) * re
+    return precomputed_day_prob[day] * re
 
 class InfectedPerson:
     def __init__(self, infected_day, state = BEFORE, imported = False,
@@ -134,7 +138,7 @@ class InfectedPerson:
         if self._state in (RECOVERED, DEAD):
             return infected
 
-        effective_re = re + (model.MUTANT_R_BOOST if self._mutant else 0)
+        effective_re = re + (model.MUTANT_R_FACTOR if self._mutant else 0)
         infect = random.uniform(0.0, 1.0) < infection_odds_pr_day(self.is_sick(), effective_re, self._day)
         if infect:
             infected = [InfectedPerson(day, mutant = self._mutant)]
@@ -148,7 +152,6 @@ class InfectedPerson:
             self._state = SICK
             self._next_change = TIME_TO_SPLIT.next(day)
 
-            # FIXME: this never runs (facepalm)
             factor = IMPORTED_TEST_BOOST if self._imported else 1
             if random.uniform(0.0, 1.0) < model.TEST_PROBABILITY * factor:
                 self._test_positive_date = TIME_TO_TEST.next(day)
@@ -210,8 +213,11 @@ def count_by(seq, keyfunc):
         count[k] = count.get(k, 0) + 1
     return count
 
+def nice_re(re):
+    return round(re * 1000) / 1000
+
 def simulate(today, get_r0, vaccinations, stop, output = True):
-    cases = 0
+    cases = model.PREVIOUSLY_INFECTED
     hospitalized = 0
     by_day = []
     people = [InfectedPerson(today) for ix in range(model.initial_cases)]
@@ -219,12 +225,18 @@ def simulate(today, get_r0, vaccinations, stop, output = True):
     home_infected = 0
     imported = 1
 
+    if today >= model.VACCINATION_START:
+        vacc_day = model.VACCINATION_START
+        while vacc_day < today:
+            vaccinations.do_vaccinations(vacc_day)
+            vacc_day += timedelta(days = 1)
+
     while today <= stop:
         vaccinations.do_vaccinations(today)
         immune = vaccinations.get_effectively_vaccinated()
         todays_re = get_re(get_r0, today, cases + immune)
         if SIMULATIONS == 1:
-            print today, cases, todays_re, accums[DEAD], 'mutants=%s' % len([p for p in people if p._mutant]), 'vacc=%s' % int(immune)
+            print today, cases, nice_re(todays_re), hospitalized, accums[DEAD], 'mutants=%s' % len([p for p in people if p._mutant]), 'vacc=%s' % int(immune)
 
         death_rate = model.get_death_rate(hospitalized, immune)
         (newly_infected, import_rate) = iterate(people, today, todays_re, death_rate)
@@ -250,13 +262,16 @@ def simulate(today, get_r0, vaccinations, stop, output = True):
         cases = len(people) + accums[DEAD] + accums[RECOVERED]
         count.update(accums)
         count['cases'] = cases
-        count['hospitalized'] = count.get(SICK_BAD, 0) + count.get(SICK_BAD_RECOVER, 0)
+        hospitalized = count.get(SICK_BAD, 0) + count.get(SICK_BAD_RECOVER, 0)
+        count['hospitalized'] = hospitalized
         count['mutant_incidence'] = len([p for p in people if p._mutant])
         count['new_cases_today'] = len(newly_infected)
         count['new_cases_mutants'] = len([
             p for p in newly_infected if p._mutant
         ])
         count['new_positives_today'] = new_positives
+        count['Ri'] = get_r0(today)
+        count['Re'] = todays_re
         if output:
             print count
 
@@ -324,34 +339,34 @@ if __name__ == '__main__':
 
 # ----- PLOTTING
 
-def prepare(rows, field):
-    y = [datetime.strptime(row.date, '%Y-%m-%d') for row in rows
-         if getattr(row, field) != '_']
-    x = [int(getattr(row, field)) for row in rows
-         if getattr(row, field) != '_']
-    return (y, x)
+# def prepare(rows, field):
+#     y = [datetime.strptime(row.date, '%Y-%m-%d') for row in rows
+#          if getattr(row, field) != '_']
+#     x = [int(getattr(row, field)) for row in rows
+#          if getattr(row, field) != '_']
+#     return (y, x)
 
-if __name__ == '__main__':
-    from matplotlib import pyplot as plt
+# if __name__ == '__main__':
+#     from matplotlib import pyplot as plt
 
-    days = [by_day[0] for by_day in results[0]]
-    plt.plot(days, hospitalized, 'g', label = u'Currently hospitalized')
-    plt.plot(days, dead, 'r', label = u'Dead, accumulated')
+#     days = [by_day[0] for by_day in results[0]]
+#     plt.plot(days, hospitalized, 'g', label = u'Currently hospitalized')
+#     plt.plot(days, dead, 'r', label = u'Dead, accumulated')
 
-    csv_dead = prepare(rows, 'dead')
-    csv_hospital = prepare(rows, 'hospital')
-    csv_positives = prepare(rows, 'positives')
+#     csv_dead = prepare(rows, 'dead')
+#     csv_hospital = prepare(rows, 'hospital')
+#     csv_positives = prepare(rows, 'positives')
 
-    plt.plot(csv_dead[0], csv_dead[1], 'ro', label = u'Dead, accumulated')
-    plt.plot(csv_hospital[0], csv_hospital[1], 'go', label = u'Currently hospitalized')
-    plt.legend(loc='upper left')
-    plt.title(model.title)
-    plt.show()
+#     plt.plot(csv_dead[0], csv_dead[1], 'ro', label = u'Dead, accumulated')
+#     plt.plot(csv_hospital[0], csv_hospital[1], 'go', label = u'Currently hospitalized')
+#     plt.legend(loc='upper left')
+#     plt.title(model.title)
+#     plt.show()
 
 
-    plt.plot(days, cases, 'r', label = u'Infected')
-    plt.plot(days, positives, 'g', label = u'Tested positive')
-    plt.plot(csv_positives[0], csv_positives[1], 'go', label = u'Tested positive')
-    plt.legend(loc='upper left')
-    plt.title(model.title)
-    plt.show()
+#     plt.plot(days, cases, 'r', label = u'Infected')
+#     plt.plot(days, positives, 'g', label = u'Tested positive')
+#     plt.plot(csv_positives[0], csv_positives[1], 'go', label = u'Tested positive')
+#     plt.legend(loc='upper left')
+#     plt.title(model.title)
+#     plt.show()
