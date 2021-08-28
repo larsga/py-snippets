@@ -18,7 +18,7 @@ class Firefly(crap.Particle):
         for firefly in self._swarm.get_particles():
             if self._val < firefly._val:
                 dist = self.distance(firefly)
-                attract = firefly._val / (1 + gamma * (dist ** 2)) * beta
+                attract = abs(firefly._val) / (1 + gamma * (dist ** 2)) * beta
 
                 #print 'jiggle %s, attract %s, dist %s' % (jiggle, attract, dist)
 
