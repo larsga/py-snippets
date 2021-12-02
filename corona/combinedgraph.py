@@ -3,8 +3,8 @@ import json, sys, csv
 from matplotlib import pyplot as plt
 from datetime import date, timedelta, datetime
 
-START = datetime(year = 2021, month = 6, day = 1)
-END   = datetime(year = 2021, month = 11, day = 1)
+START = datetime(year = 2021, month = 7, day = 1)
+END   = datetime(year = 2021, month = 10, day = 1)
 
 def parse_date(s):
     return datetime.strptime(s, '%Y-%m-%d')
@@ -122,7 +122,7 @@ def plot(filename, title, modifier, show_cases = True, show_dead = True,
     if show_ri or show_re:
         ax2 = ax1.twinx()
         ax2.set_ylabel('R')
-        plt.legend(loc='upper right')
+        #plt.legend(loc='upper right')
 
         # this bit is fucked up
         data = json.load(open(filename + '.json'))[0]
@@ -136,7 +136,7 @@ def plot(filename, title, modifier, show_cases = True, show_dead = True,
     if show_re:
         the_r = [obj['Re'] for (day, obj) in data
                  if day >= START and  day < END]
-        ax2.plot(dates, the_r, 'C3' + modifier, label = 'Re')
+        ax2.plot(dates, the_r, 'y' + modifier, label = 'Re')
 
 def plot_r(filename, modifier = ''):
     data = json.load(open(filename + '.json'))[0]
@@ -155,10 +155,13 @@ def plot_r(filename, modifier = ''):
 
 fig, ax1 = plt.subplots()
 
-dead = True
-plot('1', '', '', show_cases = True,
-     show_dead = dead, show_hospitalized = True, show_positives = True,
-     show_ri = True, show_re = True)
+dead = False
+plot('1', 'vaccinate 16-', '', show_cases = False,
+     show_dead = dead, show_hospitalized = True, show_positives = False,
+     show_ri = False, show_re = False)
+# plot('2', 'vaccinate 16-, bigger R', '--', show_cases = False,
+#      show_dead = dead, show_hospitalized = True, show_positives = True,
+#      show_ri = False, show_re = True)
 # plot('0.4', 'base R=0.4', '--', show_cases = False,
 #      show_dead = dead, show_hospitalized = True, show_positives = True)
 # plot('0.7', 'base R=0.7', ':', show_cases = False,
@@ -172,8 +175,8 @@ plot('1', '', '', show_cases = True,
 #      show_dead = dead, show_hospitalized = True, show_positives = True)
 
 plot_csv('norway-2021',
-         [('positives',    'g',  'VG positives/day 7-day avg', True),
-          #('hospitalized', 'C1', 'FHI hospitalized',            False),
+         [#('positives',    'g',  'VG positives/day 7-day avg', True),
+          ('hospitalized', 'C1', 'VG hospitalized',            False),
          ]
 )
 
@@ -183,7 +186,7 @@ plot_csv('norway-2021',
 
 # plot_r('0.1')
 
-plt.title('Norway, August 2021')
+plt.title('Norway fall 2021')
 
 # =====
 

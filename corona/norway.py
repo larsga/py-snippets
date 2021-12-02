@@ -17,7 +17,7 @@ IMMUNITY_BOOST = 1.5
 
 # https://direkte.vg.no/nyhetsdognet/news/5e7c9f96930b6a0018b44505
 HOSPITAL_LIMIT = 1000
-FULL_HOSPITAL_MULTIPLIER = 5
+FULL_HOSPITAL_MULTIPLIER = 1
 
 TEST_PROBABILITY = 0.7
 IMPORTED_TEST_BOOST = 2
@@ -26,9 +26,13 @@ MUTANT_BAD_OUTCOME_BOOST = 1.6
 
 VACCINATION_SKEPTICS = 0.1
 VACCINE_SPEED = 3.7
-# alle over 18 innen slutten av august: 4183831
-MAX_DOSES = 4183831 * (1.0 - VACCINATION_SKEPTICS)
+# alle over 18: 4183831
+# alle over 16: 4303931
+# alle over 12: 4543931
+MAX_DOSES = 4543931 * (1.0 - VACCINATION_SKEPTICS) # alle over 12
+MAX_DOSES = 4303931 * (1.0 - VACCINATION_SKEPTICS) # alle over 16
 VACCINATION_START = date(year = 2021, month = 1, day = 1)
+VACCINATION_END = date(year = 2021, month = 10, day = 30)
 
 import_rates = [
     (date(year = 2020, month = 9, day = 15), 9, False),
@@ -39,12 +43,11 @@ import_rates = [
 
 _ = date(year = 2031, month = 3, day = 17)
 R0 = [
-    (1.45, date(year = 2021, month = 7, day = 7)), # r0 until date
-    (1.90, date(year = 2021, month = 7, day = 15)),
-    (2.10, date(year = 2021, month = 7, day = 22)),
-    (2.20, date(year = 2021, month = 8, day = 8)),
-    (2.70, date(year = 2021, month = 8, day = 20)),
-    (2.80, _),
+    (1.25 * 2, date(year = 2021, month = 7, day = 1)), # r0 until date
+    (1.35 * 2, date(year = 2021, month = 7, day = 7)), # r0 until date
+    (1.70 * 2, date(year = 2021, month = 7, day = 15)), # r0 until date
+    (2.10 * 2, date(year = 2021, month = 8, day = 15)), # r0 until date
+    (3.00 * 2, _),
 ]
 
 def get_r0(day):
@@ -59,8 +62,8 @@ def get_death_rate(hospitalized, vaccinated):
 class VaccinationProgram:
 
     def __init__(self):
-        self._start_date = date(year = 2021, month = 1, day = 1)
-        self._stop_date = date(year = 2021, month = 9, day = 30)
+        self._start_date = VACCINATION_START
+        self._stop_date = VACCINATION_END
         self._vacc_per_day = 2450 * VACCINE_SPEED
         self._vacc_rate_inc = ((16500-2450) / (11.0 * 30)) * VACCINE_SPEED
 

@@ -74,6 +74,7 @@ RECOVERED        = 'RECOVERED'
 DEAD             = 'DEAD'
 
 IMPORT_DAMPING = 0.1
+SEASONALITY = 0.5 # max dampening at the height of summer
 
 # this will cause total number of infected people to overshoot the
 # theoretical max 'predicted' by the r0, but this is actually correct
@@ -157,7 +158,7 @@ class InfectedPerson:
                 self._test_positive_date = TIME_TO_TEST.next(day)
 
         elif self._state == SICK:
-            odds = model.BAD_SICK_ODDS * dampen * \
+            odds = (death_rate * 5) * dampen * \
                 (model.MUTANT_BAD_OUTCOME_BOOST if self._mutant else 1.0)
             if random.uniform(0.0, 1.0) < odds:
                 self._state = SICK_BAD
@@ -172,7 +173,7 @@ class InfectedPerson:
         elif self._state == SICK_BAD:
             odds = death_rate * (
                 model.MUTANT_BAD_OUTCOME_BOOST if self._mutant else 1)
-            if random.uniform(0.0, 1.0) < (odds / model.BAD_SICK_ODDS):
+            if random.uniform(0.0, 1.0) < 0.2: #(odds / model.BAD_SICK_ODDS):
                 self._state = DEAD
             else:
                 self._state = SICK_BAD_RECOVER
@@ -234,7 +235,7 @@ def simulate(today, get_r0, vaccinations, stop, output = True):
     while today <= stop:
         vaccinations.do_vaccinations(today)
         immune = vaccinations.get_effectively_vaccinated()
-        todays_re = get_re(get_r0, today, cases + immune)
+        todays_re = get_re(get_r0, today, cases + immune) * seasonality(today)
         if SIMULATIONS == 1:
             print today, cases, nice_re(todays_re), hospitalized, accums[DEAD], 'mutants=%s' % len([p for p in people if p._mutant]), 'vacc=%s' % int(immune)
 
@@ -311,6 +312,17 @@ def average_of_fields(results, fields):
                  for by_day in results]) / float(SIMULATIONS)
         )
     return data
+
+def seasonality(day):
+    start = date(year = day.year, month = 1, day = 1)
+    ix = (day - start).days
+
+    if ix <= 15:
+        return 0.5 + ((ix + 170) / 185.0 * SEASONALITY)
+    elif ix <= 195:
+        return 1 - ((ix - 15) / 180.0 * SEASONALITY)
+    else:
+        return 0.5 + ((ix - 195) / 185.0 * SEASONALITY)
 
 if __name__ == '__main__':
     results = []
