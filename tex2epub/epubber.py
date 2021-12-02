@@ -56,10 +56,12 @@ CONTENT_TOP = u'''<?xml version="1.0" encoding="UTF-8"?>
 <package version="2.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="epub-id-1">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
     <dc:identifier id="epub-id-1">%s</dc:identifier>
+    %s <!-- isbn goes here -->
     <dc:title id="epub-title-1">%s</dc:title>
     <dc:date id="epub-date-1">%s</dc:date>
     <dc:language>en-US</dc:language>
     <dc:creator id="epub-creator-1" opf:role="aut">%s</dc:creator>
+    %s <!-- publisher -->
     <meta name="cover" content="cover_pages_png" />
   </metadata>
   <manifest>
@@ -118,6 +120,12 @@ class EpubWriter:
         self._toc_depth = toc_depth
         self._title_page = False
 
+        self._title = None
+        self._subtitle = None
+        self._author = None
+        self._isbn = None
+        self._publisher = None
+
         self._write('mimetype', 'application/epub+zip')
 
         os.mkdir('META-INF')
@@ -139,8 +147,23 @@ class EpubWriter:
     def set_title(self, title):
         self._title = title.replace('--', u'\u2014')
 
+    def set_subtitle(self, subtitle):
+        self._subtitle = subtitle
+
+    def get_title(self):
+        if not self._subtitle:
+            return self._title
+        else:
+            return self._title + ': ' + self._subtitle
+
     def set_author(self, author):
         self._author = author
+
+    def set_isbn(self, isbn):
+        self._isbn = isbn
+
+    def set_publisher(self, publisher):
+        self._publisher = publisher
 
     def start_chapter(self, title):
         if self._para:
@@ -334,7 +357,7 @@ class EpubWriter:
 
     def add_title_page(self):
         self._title_page = True
-        page = TITLE_PAGE % (self._title, self._title, self._author)
+        page = TITLE_PAGE % (self.get_title(), self.get_title(), self._author)
         self._write('title_page.xhtml', page.encode('utf-8'))
 
     def add_xhtml_blob(self, blob):
@@ -376,14 +399,14 @@ class EpubWriter:
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta http-equiv="Content-Style-Type" content="text/css" />
-  <meta name="generator" content="pandoc" />
+  <meta name="generator" content="epubber.py" />
   <title>%s</title>
   <link rel="stylesheet" type="text/css" href="stylesheet.css" />
 </head>
 <body>
         %s
 </body>
-</html>''' % (self._title, cover_image)).encode('utf-8'))
+</html>''' % (self.get_title(), cover_image)).encode('utf-8'))
 
     def _write_nav_xhtml(self):
         tmp = StringIO()
@@ -397,7 +420,7 @@ class EpubWriter:
     <div>
       <h1 id="toc-title">%s</h1>
       <ol class="toc">
-        ''' % (self._title, self._title))
+        ''' % (self.get_title(), self.get_title()))
 
         counter = 1
         for chapter in self._toc:
@@ -443,7 +466,7 @@ class EpubWriter:
     <text>%s</text>
   </docTitle>
   <navMap>
-''' % (self._uuid, self._title))
+''' % (self._isbn or self._uuid, self.get_title()))
 
         if self._title_page:
             tmp.write(u'''
@@ -453,7 +476,7 @@ class EpubWriter:
       </navLabel>
       <content src="title_page.xhtml" />
     </navPoint>
-            ''' % self._title)
+            ''' % self.get_title())
 
         counter = 1
         for chapter in self._toc:
@@ -480,7 +503,19 @@ class EpubWriter:
         return counter
 
     def _write_content_cpf(self):
-        tmp = CONTENT_TOP % (self._uuid, self._title, now(), self._author)
+        theid = self._isbn
+        if theid:
+            isbn = '<dc:identifier id="uid" opf:scheme="ISBN">%s</dc:identifier>' % theid
+        else:
+            self._theid = self._uuid
+            isbn = ''
+
+        publisher = ''
+        if self._publisher:
+            publisher = '<dc:publisher>%s</dc:publisher>' % self._publisher
+
+        tmp = CONTENT_TOP % (theid, isbn, self.get_title(), now(), self._author,
+                             publisher)
         for ix in range(1, len(self._toc) + 1):
             tmp += u'<item id="ch%s_xhtml" href="ch%s.xhtml" media-type="application/xhtml+xml" />\n' % (ix, ix)
         if self._cover_image:
@@ -503,7 +538,7 @@ class EpubWriter:
         for ix in range(1, len(self._toc) + 1):
             tmp += u'<itemref idref="ch%s_xhtml" />\n' % ix
 
-        tmp += CONTENT_BOTTOM % self._title
+        tmp += CONTENT_BOTTOM % self.get_title()
         self._write('content.opf', tmp.encode('utf-8'))
 
     def _write(self, filename, contents):
