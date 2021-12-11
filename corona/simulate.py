@@ -1,45 +1,13 @@
-#encoding=utf-8
 
-# NOTE: This code is unclean in the sense that different parts of the
-# codebase communicate with each other via global variables. That was
-# a quick-and-dirty way to quickly iterate this model to a point where
-# it did what I wanted it to do, but it will make it unpleasant to
-# work with for others. You have been warned.
-
-import random, sys, json, math
-from collections import namedtuple
+import random, math, json
 from datetime import date, timedelta, datetime
 
-# FIXME:
-#   - output RMSE against known numbers?
-#   - imported test boost has no effect (bug)
-
-import norway, china, italy, example, kormod, norway2020, trondheim
-
-if len(sys.argv) > 2:
-    SIMULATIONS = int(sys.argv[2])
-else:
-    SIMULATIONS = 100
-
-model = norway
-if len(sys.argv) >= 2:
-    m = sys.argv[1]
-    if m == 'norway':
-        model = norway
-    elif m == 'norway2020':
-        model = norway2020
-    elif m == 'italy':
-        model = italy
-    elif m == 'china':
-        model = italy
-    elif m == 'example':
-        model = example
-    elif m == 'kormod':
-        model = kormod
-    elif m == 'trondheim':
-        model = trondheim
-    else:
-        assert False
+HEALTHY    = 0
+INFECTED   = 1
+HOSPITAL   = 2
+SICK_HOME  = 3
+DEAD       = 4
+HOSPITAL_RECOVER = 5
 
 class Generator:
     def __init__(self, avg, var, lognormal = False):
@@ -53,40 +21,190 @@ class Generator:
             #delta = int(random.lognormvariate(self._avg, self._var))
         else:
             delta = int(random.gauss(self._avg, self._var))
+
         return day + timedelta(days = delta)
 
-# https://drive.google.com/file/d/1DqfSnlaW6N3GBc5YKyBOCGPfdqOsqk1G/view
-#   average time from diagnosis to death = 14 (symptoms + 4.5 = diagnosis?)
+class DayStats:
 
-LATENCY = Generator(avg = 5.1, var = 1)
-TIME_TO_SPLIT = Generator(avg = 8, var = 2)
+    def __init__(self):
+        self._new_infections = 0
+        self._hospitalized = 0
+        self._new_per_variant = {}
+
+    def count_infection(self, variant):
+        self._new_infections += 1
+        vid = variant.get_id()
+        self._new_per_variant[vid] = self._new_per_variant.get(vid, 0) + 1
+
+    def count_in_hospital(self):
+        self._hospitalized += 1
+
+    def get_new_cases(self):
+        return self._new_infections
+
+    def get_new_cases_by_variant(self):
+        return self._new_per_variant
+
+    def get_hospitalized(self):
+        return self._hospitalized
+
+class Population:
+
+    def __init__(self, population_size, params):
+        self._population = [Person() for ix in range(population_size)]
+        self._params = params
+        self._infected = []
+
+    def get_incidence(self):
+        return len(self._infected)
+
+    def import_cases(self, count, variant, today):
+        for ix in range(count):
+            p = random.choice(self._population)
+            while p.is_infected():
+                p = random.choice(self._population)
+
+            p.import_infect_with(variant, today)
+            self._infected.append(p)
+
+    def mark_cases_as_infected(self, count, variant):
+        for ix in range(count):
+            p = random.choice(self._population)
+            while p.has_been_infected():
+                p = random.choice(self._population)
+
+            p.previously_infected_with(variant)
+
+    def iterate(self, todays_r_reduction, today, stats):
+        infected2 = []
+        for p in self._infected:
+            today_r = p.get_today_r() * todays_r_reduction
+
+            while today_r >= 1.0:
+                self._infect_one_person(p, today, stats)
+                today_r -= 1.0
+
+            if random.random() <= today_r:
+                self._infect_one_person(p, today, stats)
+
+            p.iterate(today)
+            if p.is_infected():
+                infected2.append(p)
+            if p.is_hospitalized():
+                stats.count_in_hospital()
+
+        self._infected = infected2
+
+    def _infect_one_person(self, index_case, today, stats):
+        p = random.choice(self._population)
+        while p == index_case:
+            p = random.choice(self._population)
+
+        variant = index_case.get_variant().get_when_infecting()
+        was_infected = p.is_infected()
+        p.infect(variant, today)
+        if p.is_infected() and not was_infected:
+            self._infected.append(p)
+            stats.count_infection(variant)
+
+    def pick_n_people(self, n):
+        people = set()
+        while len(people) < n:
+            people.add(random.choice(self._population))
+        return people
+
+TIME_TO_SPLIT = Generator(avg = 5.1 + 8, var = 2)
 GOOD_RECOVER_TIME = Generator(avg = 14, var = 2)
 BAD_FORK_TIME = Generator(avg = 13, var = 3, lognormal = True)
 BAD_RECOVER_TIME = Generator(avg = 7.5, var = 2)
-TIME_TO_TEST = Generator(avg = 4, var = 2)
 
-BEFORE           = 'BEFORE'
-SICK             = 'SICK'
-SICK_GOOD        = 'SICK_GOOD'
-SICK_BAD         = 'SICK_BAD'
-SICK_BAD_RECOVER = 'SICK_BAD_RECOVER'
-RECOVERED        = 'RECOVERED'
-DEAD             = 'DEAD'
+class Person:
 
-IMPORT_DAMPING = 0.1
-SEASONALITY = 0.5 # max dampening at the height of summer
+    def __init__(self):
+        self._state = HEALTHY
+        self._variant = None
+        self._recovered_variants = []
+        self._days_since_infected = -1
+        self._next_change = None
 
-# this will cause total number of infected people to overshoot the
-# theoretical max 'predicted' by the r0, but this is actually correct
-# https://twitter.com/CT_Bergstrom/status/1251999295231819778
-def get_re(get_r0, day, immune):
-    r0 = get_r0(day)
-    immunity_factor = (1.0 - (immune / float(model.POPULATION)))
-    if immunity_factor < 0:
-        return 0
-    return immunity_factor * r0
+    def is_infected(self):
+        return self._state not in (HEALTHY, DEAD)
 
-# ----- infectious probability by day
+    def has_been_infected(self):
+        return bool(self._recovered_variants)
+
+    def is_hospitalized(self):
+        return self._state in (HOSPITAL, HOSPITAL_RECOVER)
+
+    def get_variant(self):
+        return self._variant
+
+    def import_infect_with(self, variant, today):
+        self.infect(variant, today, check_immunity = False)
+
+    def previously_infected_with(self, variant):
+        self._recovered_variants.append(variant)
+
+    def infect(self, variant, today, check_immunity = True):
+        if self._state != HEALTHY:
+            return # this person is already sick/dead, so no effect
+
+        if check_immunity:
+            for v in self._recovered_variants:
+                if random.random() <= v.get_immunity_to(variant):
+                    return # immunity protected this person
+
+        self._state = INFECTED
+        self._variant = variant
+        self._days_since_infected = 0
+        self._next_change = TIME_TO_SPLIT.next(today)
+
+    def get_today_r(self):
+        if self._days_since_infected == 100:
+            print self._state, self._next_change
+        return infection_odds_pr_day(self._variant.get_r0(), self._days_since_infected)
+
+    def iterate(self, today):
+        self._days_since_infected += 1
+
+        if today < self._next_change:
+            return
+
+        if self._state == INFECTED:
+            if random.random() <= self._variant.get_hospitalization_odds():
+                self._state = HOSPITAL
+                self._next_change = BAD_FORK_TIME.next(today)
+            else:
+                self._state = SICK_HOME
+                self._next_change = GOOD_RECOVER_TIME.next(today)
+
+        elif self._state == HOSPITAL:
+            if random.random() <= self._variant.get_death_odds():
+                self._state = DEAD
+                self._next_change = None
+            else:
+                self._state = HOSPITAL_RECOVER
+                self._next_change = BAD_RECOVER_TIME.next(today)
+
+        elif self._state in (SICK_HOME, HOSPITAL_RECOVER):
+            self._state = HEALTHY
+            self._recovered_variants.append(self._variant)
+            self._variant = None
+
+        else:
+            assert False
+
+    def get_immunity_to(self, variant):
+        risk = 1.0
+        for v in self._recovered_variants:
+            risk *= (1.0 - v.get_immunity_to(variant))
+        return 1.0 - risk
+
+# --- INFECTION BY DAY PROBABILITY
+
+def infection_odds_pr_day(re, day):
+    return precomputed_day_prob[day] * re
+
 def factorial(n):
     f = 1
     for k in range(1, n + 1):
@@ -106,279 +224,122 @@ def prob(day):
             ) / 2.25
 
 precomputed_day_prob = [prob(day) for day in range(100)]
-# ----- end
 
-avg_days = 1 + TIME_TO_SPLIT._avg + (
-    GOOD_RECOVER_TIME._avg * (1.0 - model.BAD_SICK_ODDS) +
-    (BAD_FORK_TIME._avg + BAD_RECOVER_TIME._avg) * model.BAD_SICK_ODDS
-)
-# uniform probability distribution
-def infection_odds_pr_day(sick, re, day):
-    if sick:
-        return re / avg_days
-    else:
-        return 0
+# --- OTHER STUFF
 
-# more scientific
-def infection_odds_pr_day(sick, re, day):
-    return precomputed_day_prob[day] * re
+def get0(day):
+    return 0.0
 
-class InfectedPerson:
-    def __init__(self, infected_day, state = BEFORE, imported = False,
-                 mutant = False):
-        self._state = state
-        self._next_change = LATENCY.next(infected_day)
-        self._imported = imported
-        self._test_positive_date = None
-        self._day = 0 # days since infection
-        self._mutant = mutant
+class DefaultVariant:
 
-    def iterate(self, day, re, death_rate):
-        self._day += 1
-        infected = []
-        if self._state in (RECOVERED, DEAD):
-            return infected
+    def __init__(self, r0 = 3, theid = 'default'):
+        self._r0 = r0
+        self._id = theid
 
-        effective_re = re + (model.MUTANT_R_FACTOR if self._mutant else 0)
-        infect = random.uniform(0.0, 1.0) < infection_odds_pr_day(self.is_sick(), effective_re, self._day)
-        if infect:
-            infected = [InfectedPerson(day, mutant = self._mutant)]
+    def get_id(self):
+        return self._id
 
-        if self._next_change > day:
-            return infected
+    def get_hospitalization_odds(self):
+        return 0.05
 
-        dampen = IMPORT_DAMPING if self._imported else 1.0
+    def get_death_odds(self):
+        return 0.016 / self.get_hospitalization_odds()
 
-        if self._state == BEFORE:
-            self._state = SICK
-            self._next_change = TIME_TO_SPLIT.next(day)
+    def get_r0(self):
+        return self._r0
 
-            factor = IMPORTED_TEST_BOOST if self._imported else 1
-            if random.uniform(0.0, 1.0) < model.TEST_PROBABILITY * factor:
-                self._test_positive_date = TIME_TO_TEST.next(day)
+    def get_immunity_to(self, variant):
+        return 1.0
 
-        elif self._state == SICK:
-            odds = (death_rate * 5) * dampen * \
-                (model.MUTANT_BAD_OUTCOME_BOOST if self._mutant else 1.0)
-            if random.uniform(0.0, 1.0) < odds:
-                self._state = SICK_BAD
-                self._next_change = BAD_FORK_TIME.next(day)
-            else:
-                self._state = SICK_GOOD
-                self._next_change = GOOD_RECOVER_TIME.next(day)
+    def get_when_infecting(self):
+        return self
 
-        elif self._state == SICK_GOOD:
-            self._state = RECOVERED
+    def get_metadata(self):
+        return {}
 
-        elif self._state == SICK_BAD:
-            odds = death_rate * (
-                model.MUTANT_BAD_OUTCOME_BOOST if self._mutant else 1)
-            if random.uniform(0.0, 1.0) < 0.2: #(odds / model.BAD_SICK_ODDS):
-                self._state = DEAD
-            else:
-                self._state = SICK_BAD_RECOVER
-                self._next_change = BAD_RECOVER_TIME.next(day)
+class SimulationParameters:
+    def __init__(self):
+        self.SEASONALITY = 0.5
 
-        elif self._state == SICK_BAD_RECOVER:
-            self._state = RECOVERED
-        else:
-            assert False
-
-        return infected
-
-    def is_sick(self):
-        return self._state in (SICK, SICK_BAD, SICK_GOOD)
-
-def iterate(people, day, re, death_rate):
-    infected = []
-    for p in people:
-        for newly_infected in p.iterate(day, re, death_rate):
-            infected.append(newly_infected)
-            people.append(newly_infected)
-
-    import_rate = 0
-    for (end, rate, mutants) in model.import_rates:
-        if day < end:
-            import_rate = rate
-            break
-
-    for ix in range(import_rate):
-        people.append(InfectedPerson(day, SICK, imported = True, mutant = mutants))
-
-    return (infected, import_rate)
-
-def count_by(seq, keyfunc):
-    count = {}
-    for v in seq:
-        k = keyfunc(v)
-        count[k] = count.get(k, 0) + 1
-    return count
-
-def nice_re(re):
-    return round(re * 1000) / 1000
-
-def simulate(today, get_r0, vaccinations, stop, output = True):
-    cases = model.PREVIOUSLY_INFECTED
-    hospitalized = 0
-    by_day = []
-    people = [InfectedPerson(today) for ix in range(model.initial_cases)]
-    accums = {DEAD : 0, RECOVERED : 0, 'positive' : 0}
-    home_infected = 0
-    imported = 1
-
-    if today >= model.VACCINATION_START:
-        vacc_day = model.VACCINATION_START
-        while vacc_day < today:
-            vaccinations.do_vaccinations(vacc_day)
-            vacc_day += timedelta(days = 1)
-
-    while today <= stop:
-        vaccinations.do_vaccinations(today)
-        immune = vaccinations.get_effectively_vaccinated()
-        todays_re = get_re(get_r0, today, cases + immune) * seasonality(today)
-        if SIMULATIONS == 1:
-            print today, cases, nice_re(todays_re), hospitalized, accums[DEAD], 'mutants=%s' % len([p for p in people if p._mutant]), 'vacc=%s' % int(immune)
-
-        death_rate = model.get_death_rate(hospitalized, immune)
-        (newly_infected, import_rate) = iterate(people, today, todays_re, death_rate)
-        home_infected += len(newly_infected)
-        imported += import_rate
-
-        if output:
-            print '---', today
-            print 'Home %s, imported %s' % (home_infected, imported)
-
-        count = count_by(people, lambda p: p._state)
-        new_positives = len([
-            p for p in people if p._test_positive_date == today
-        ])
-        count['positive'] = new_positives
-
-        accums[DEAD] = accums[DEAD] + count.get(DEAD, 0)
-        accums[RECOVERED] = accums[RECOVERED] + count.get(RECOVERED, 0)
-        accums['positive'] = accums['positive'] + new_positives
-        people = [p for p in people if p._state not in (DEAD, RECOVERED)]
-        assert count_by(people, lambda p: p._state).get(DEAD, 0) == 0
-
-        cases = len(people) + accums[DEAD] + accums[RECOVERED]
-        count.update(accums)
-        count['cases'] = cases
-        hospitalized = count.get(SICK_BAD, 0) + count.get(SICK_BAD_RECOVER, 0)
-        count['hospitalized'] = hospitalized
-        count['mutant_incidence'] = len([p for p in people if p._mutant])
-        count['new_cases_today'] = len(newly_infected)
-        count['new_cases_mutants'] = len([
-            p for p in newly_infected if p._mutant
-        ])
-        count['new_positives_today'] = new_positives
-        count['Ri'] = get_r0(today)
-        count['Re'] = todays_re
-        if output:
-            print count
-
-        by_day.append((today, count))
-        today += timedelta(days = 1)
-
-    return by_day
-
-# ----- CSV HANDLING
-import csv
-
-def load_csv(filename):
-    rows = [row for row in csv.reader(open(filename))]
-    rows = rows[1 : ] # drop header
-
-    Row = namedtuple('Row', ('date', 'dead', 'positives', 'infected_locally',
-                             'infected_abroad', 'infected_unknown', 'hospital',
-                             'icu'))
-    rows = [Row._make(row) for row in rows]
-    return rows
-
-# ----- PRODUCE DATA
-
-def average_of_field(results, field):
-    data = []
-    for ix in range(len(results[0])):
-        data.append(
-            sum([by_day[ix][1].get(field, 0) for by_day in results]) / float(SIMULATIONS)
-        )
-    return data
-
-def average_of_fields(results, fields):
-    data = []
-    for ix in range(len(results[0])):
-        data.append(
-            sum([sum([by_day[ix][1].get(field, 0) for field in fields])
-                 for by_day in results]) / float(SIMULATIONS)
-        )
-    return data
-
-def seasonality(day):
+def seasonality(day, params):
     start = date(year = day.year, month = 1, day = 1)
     ix = (day - start).days
 
     if ix <= 15:
-        return 0.5 + ((ix + 170) / 185.0 * SEASONALITY)
+        return 0.5 + ((ix + 170) / 185.0 * params.SEASONALITY)
     elif ix <= 195:
-        return 1 - ((ix - 15) / 180.0 * SEASONALITY)
+        return 1 - ((ix - 15) / 180.0 * params.SEASONALITY)
     else:
-        return 0.5 + ((ix - 195) / 185.0 * SEASONALITY)
+        return 0.5 + ((ix - 195) / 185.0 * params.SEASONALITY)
 
-if __name__ == '__main__':
-    results = []
-    for ix in range(SIMULATIONS):
-        results.append(simulate(model.start, model.get_r0,
-                                model.VaccinationProgram(),
-                                model.stop, False))
-        if SIMULATIONS > 1:
-            print ix + 1
+def collect_variants(population, stats):
+    variants = {}
+    for p in population._infected:
+        if not p.get_variant():
+            continue
 
-if __name__ == '__main__':
-    rows = load_csv(model.csv_file)
-    hospitalized = average_of_field(results, 'hospitalized')
-    dead = average_of_field(results, DEAD)
-    cases = average_of_field(results, 'cases')
-    positives = average_of_field(results, 'positive')
+        vid = p.get_variant().get_id()
+        if vid not in variants:
+            variants[vid] = {'count' : 0, 'metadata' : p.get_variant().get_metadata()}
+        variants[vid]['count'] = variants[vid]['count'] + 1
 
-    # ----- DATA EXPORT
+    for (vid, new_cases) in stats.get_new_cases_by_variant().items():
+        variants[vid]['new-cases'] = new_cases
 
-    if len(sys.argv) == 4:
-        filename = sys.argv[3]
-        with open(filename, 'w') as f:
-            tmp = [[[str(date),  data] for (date, data) in by_day]
-                       for by_day in results]
-            json.dump(tmp, f)
+    return variants
 
-# ----- PLOTTING
+def debug_r(population, variants, todays_r_reduction):
+    print
+    for variant in variants:
+        print '---', variant.get_id()
+        total = 0
+        for p in population.pick_n_people(100000):
+            total += p.get_immunity_to(variant)
+        immunity_factor = total / 100000.0
+        print 'r_redux %s * r0 %s * immunity %s = %s' % (todays_r_reduction, variant.get_r0(), immunity_factor, todays_r_reduction * variant.get_r0() * (1 - immunity_factor))
+        print 'immunity: ', [p.get_immunity_to(variant) for p in population.pick_n_people(10)]
 
-# def prepare(rows, field):
-#     y = [datetime.strptime(row.date, '%Y-%m-%d') for row in rows
-#          if getattr(row, field) != '_']
-#     x = [int(getattr(row, field)) for row in rows
-#          if getattr(row, field) != '_']
-#     return (y, x)
+    print
 
-# if __name__ == '__main__':
-#     from matplotlib import pyplot as plt
+def simulate(start, end, population_size, already_infected = 0,
+             get_imports = get0, start_variant = DefaultVariant(),
+             start_incidence = 0,
+             import_variant = DefaultVariant(),
+             stats_file = None, get_r_reduction = get0,
+             params = SimulationParameters(),
+             debug_r_on_dates = set(),
+    ):
+    population = Population(population_size, params)
+    # these cases are inactive, just immune
+    population.mark_cases_as_infected(already_infected, start_variant)
+    # these cases are active, and will become immune (or die)
+    population.import_cases(start_incidence, start_variant, start)
 
-#     days = [by_day[0] for by_day in results[0]]
-#     plt.plot(days, hospitalized, 'g', label = u'Currently hospitalized')
-#     plt.plot(days, dead, 'r', label = u'Dead, accumulated')
+    outf = open(stats_file, 'w') if stats_file else None
 
-#     csv_dead = prepare(rows, 'dead')
-#     csv_hospital = prepare(rows, 'hospital')
-#     csv_positives = prepare(rows, 'positives')
+    today = start
+    while today < end:
+        stats = DayStats()
+        population.import_cases(get_imports(today), import_variant, today)
 
-#     plt.plot(csv_dead[0], csv_dead[1], 'ro', label = u'Dead, accumulated')
-#     plt.plot(csv_hospital[0], csv_hospital[1], 'go', label = u'Currently hospitalized')
-#     plt.legend(loc='upper left')
-#     plt.title(model.title)
-#     plt.show()
+        todays_r_reduction = (1.0 - get_r_reduction(today)) * seasonality(today, params)
+        population.iterate(todays_r_reduction, today, stats)
 
+        print today, stats.get_new_cases(), population.get_incidence(), stats.get_hospitalized(), todays_r_reduction * start_variant.get_r0()
 
-#     plt.plot(days, cases, 'r', label = u'Infected')
-#     plt.plot(days, positives, 'g', label = u'Tested positive')
-#     plt.plot(csv_positives[0], csv_positives[1], 'go', label = u'Tested positive')
-#     plt.legend(loc='upper left')
-#     plt.title(model.title)
-#     plt.show()
+        if outf:
+            outf.write(json.dumps({
+                'date' : str(today),
+                'new-cases' : stats.get_new_cases(),
+                'incidence' : population.get_incidence(),
+                'hospitalized' : stats.get_hospitalized(),
+                'variants' : collect_variants(population, stats),
+            }))
+            outf.write('\n')
+
+        if today in debug_r_on_dates:
+            debug_r(population, [v for v in [start_variant, import_variant]
+                                 if v], todays_r_reduction)
+        if not population.get_incidence():
+            break
+        today += timedelta(days = 1)
