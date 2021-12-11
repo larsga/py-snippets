@@ -1,21 +1,21 @@
 
 # Covid-19 model
 
-A simple SEIR-like model of the covid-19 epidemic, with three pre-made
-configurations for Norway, Italy, and China. Can store results of runs
-as JSON files for later analysis/graphing.
+A simple SEIR-like model of the covid-19 epidemic, with a setup for
+modelling delta+omicron in Norway December-January 2021-2022. Can
+store results of runs as JSON files for later analysis/graphing.
 
 To try it out, run:
 
 ```
-python simulate.py norway 1
+python omicron_delta.py
 ```
 
-First parameter chooses the configuration, second parameter the number
-of simulation runs. (It runs *much* faster with pypy.)
+It runs *much* faster with pypy.
 
-By editing the configurations you can change assumptions about initial
-cases, imported cases, reproduction number at different times, etc etc.
+By editing the configuration you can change assumptions about initial
+cases, imported cases, reproduction number at different times, etc
+etc.
 
 The model covers:
   * imported cases,
@@ -26,7 +26,8 @@ The model covers:
   * herd immunity (requires setting population size),
   * (crudely) effects of overloaded healthcare services,
   * mutant versions of the virus,
-  * vaccination programs.
+  * (vaccination programs -- this was taken out, but will be reintroduced),
+  * seasonality.
 
 ## Sources for model parameters
 

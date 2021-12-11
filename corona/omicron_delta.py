@@ -16,11 +16,14 @@ class ExclusiveVariant(simulate.DefaultVariant):
 
     def get_immunity_to(self, variant):
         if self.get_id() == variant.get_id():
-            return 1.0
+            return 1.0 # nobody gets the same variant twice
         else:
-            return 0.2
+            return 0.2 # each variant protects 20% against the other
 
 delta = ExclusiveVariant(6.5, 'delta')
+
+# I don't know what omicron's R0 is, but setting it to 5.5 here gives
+# the right behaviour in this model: Re=3.55 until Dec 8
 omicron = ExclusiveVariant(5.5, 'omicron')
 
 def get_imports(day):
