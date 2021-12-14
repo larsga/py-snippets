@@ -30,6 +30,8 @@ class DayStats:
         self._new_infections = 0
         self._hospitalized = 0
         self._new_per_variant = {}
+        self._positive_tests = 0
+        self._positives_per_variant = {}
 
     def count_infection(self, variant):
         self._new_infections += 1
@@ -39,11 +41,20 @@ class DayStats:
     def count_in_hospital(self):
         self._hospitalized += 1
 
+    def count_positive_tests(self, variant):
+        self._positive_tests += 1
+
     def get_new_cases(self):
         return self._new_infections
 
     def get_new_cases_by_variant(self):
         return self._new_per_variant
+
+    def get_positive_tests(self):
+        return self._positive_tests
+
+    def get_positive_tests_by_variant(self):
+        return self._positives_per_variant
 
     def get_hospitalized(self):
         return self._hospitalized
@@ -75,7 +86,7 @@ class Population:
 
             p.previously_infected_with(variant)
 
-    def iterate(self, todays_r_reduction, today, stats):
+    def iterate(self, todays_r_reduction, today, stats, test_probability):
         infected2 = []
         for p in self._infected:
             today_r = p.get_today_r() * todays_r_reduction
@@ -92,6 +103,8 @@ class Population:
                 infected2.append(p)
             if p.is_hospitalized():
                 stats.count_in_hospital()
+            if p.test_positive_today(today) and random.random() < test_probability:
+                stats.count_positive_tests(p.get_variant())
 
         self._infected = infected2
 
@@ -117,6 +130,7 @@ TIME_TO_SPLIT = Generator(avg = 5.1 + 8, var = 2)
 GOOD_RECOVER_TIME = Generator(avg = 14, var = 2)
 BAD_FORK_TIME = Generator(avg = 13, var = 3, lognormal = True)
 BAD_RECOVER_TIME = Generator(avg = 7.5, var = 2)
+TIME_TO_TEST = Generator(avg = 4, var = 2)
 
 class Person:
 
@@ -126,6 +140,7 @@ class Person:
         self._recovered_variants = []
         self._days_since_infected = -1
         self._next_change = None
+        self._test_positive_date = None
 
     def is_infected(self):
         return self._state not in (HEALTHY, DEAD)
@@ -138,6 +153,9 @@ class Person:
 
     def get_variant(self):
         return self._variant
+
+    def test_positive_today(self, today):
+        return today == self._test_positive_date
 
     def import_infect_with(self, variant, today):
         self.infect(variant, today, check_immunity = False)
@@ -158,6 +176,7 @@ class Person:
         self._variant = variant
         self._days_since_infected = 0
         self._next_change = TIME_TO_SPLIT.next(today)
+        self._test_positive_date = TIME_TO_TEST.next(today)
 
     def get_today_r(self):
         if self._days_since_infected == 100:
@@ -240,7 +259,7 @@ class DefaultVariant:
         return self._id
 
     def get_hospitalization_odds(self):
-        return 0.05
+        return 0.02
 
     def get_death_odds(self):
         return 0.016 / self.get_hospitalization_odds()
@@ -285,6 +304,8 @@ def collect_variants(population, stats):
 
     for (vid, new_cases) in stats.get_new_cases_by_variant().items():
         variants[vid]['new-cases'] = new_cases
+    for (vid, positives) in stats.get_positive_tests_by_variant().items():
+        variants[vid]['positives'] = positives
 
     return variants
 
@@ -307,6 +328,7 @@ def simulate(start, end, population_size, already_infected = 0,
              import_variant = DefaultVariant(),
              stats_file = None, get_r_reduction = get0,
              params = SimulationParameters(),
+             test_probability = 1.0,
              debug_r_on_dates = set(),
     ):
     population = Population(population_size, params)
@@ -323,7 +345,7 @@ def simulate(start, end, population_size, already_infected = 0,
         population.import_cases(get_imports(today), import_variant, today)
 
         todays_r_reduction = (1.0 - get_r_reduction(today)) * seasonality(today, params)
-        population.iterate(todays_r_reduction, today, stats)
+        population.iterate(todays_r_reduction, today, stats, test_probability)
 
         print today, stats.get_new_cases(), population.get_incidence(), stats.get_hospitalized(), todays_r_reduction * start_variant.get_r0()
 
@@ -333,6 +355,7 @@ def simulate(start, end, population_size, already_infected = 0,
                 'new-cases' : stats.get_new_cases(),
                 'incidence' : population.get_incidence(),
                 'hospitalized' : stats.get_hospitalized(),
+                'positives' : stats.get_positive_tests(),
                 'variants' : collect_variants(population, stats),
             }))
             outf.write('\n')
